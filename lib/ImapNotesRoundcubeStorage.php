@@ -110,7 +110,15 @@ class ImapNotesRoundcubeStorage implements ImapNotesStorageInterface
         $storage = $this->rcmail->get_storage();
         $raw = $message['raw'];
         $result = $storage->save_message($folder, $raw, '', false, ['SEEN'], $message['date']);
-        $uid = is_numeric($result) ? (string) $result : null;
+        $uid = null;
+
+        if (is_numeric($result)) {
+            $uid = (string) $result;
+        } elseif (is_array($result) && !empty($result['uid']) && ctype_digit((string) $result['uid'])) {
+            $uid = (string) $result['uid'];
+        } elseif (is_object($result) && !empty($result->uid) && ctype_digit((string) $result->uid)) {
+            $uid = (string) $result->uid;
+        }
 
         if (!$uid && $result) {
             $uid = $this->lookupAppendedUid($folder, $message);
@@ -145,7 +153,10 @@ class ImapNotesRoundcubeStorage implements ImapNotesStorageInterface
         }
 
         if (!$storage->set_flag($uid, 'DELETED', $folder)) {
-            return ['cleanup_pending' => true];
+            return [
+                'cleanup_pending' => false,
+                'error' => 'The previous revision could not be retired safely.',
+            ];
         }
 
         if ($storage->get_capability('UIDPLUS')) {
@@ -180,7 +191,10 @@ class ImapNotesRoundcubeStorage implements ImapNotesStorageInterface
         }
 
         if (!$storage->set_flag($uid, 'DELETED', $folder)) {
-            return ['cleanup_pending' => true];
+            return [
+                'cleanup_pending' => false,
+                'error' => 'The note could not be deleted safely.',
+            ];
         }
 
         if ($storage->get_capability('UIDPLUS')) {
@@ -412,7 +426,15 @@ class ImapNotesRoundcubeStorage implements ImapNotesStorageInterface
     {
         $all = $_SESSION['imap_notes_hidden_uids'] ?? [];
 
-        return !empty($all[$folder]) && is_array($all[$folder]) ? array_flip($all[$folder]) : [];
+        if (empty($all[$folder]) || !is_array($all[$folder])) {
+            return [];
+        }
+
+        $uids = array_filter($all[$folder], function ($value) {
+            return is_scalar($value) && preg_match('/^[0-9]+$/', (string) $value);
+        });
+
+        return array_flip(array_map('strval', $uids));
     }
 
     private function hideDeferredUid($folder, $uid)

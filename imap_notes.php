@@ -217,7 +217,7 @@ class imap_notes extends rcube_plugin
         }
         $out .= '</div></form>';
 
-        if (!empty($note['uid'])) {
+        if (!empty($note['uid']) && empty($note['read_only'])) {
             $out .= '<form class="note-delete-form" method="post" action="' . $this->escape($delete_url) . '">';
             $out .= $this->hidden('_token', $token);
             foreach (['note_key', 'mailbox', 'uid', 'uidvalidity', 'logical_uuid', 'updated_at', 'fingerprint'] as $field) {
