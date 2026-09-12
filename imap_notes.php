@@ -174,6 +174,7 @@ class imap_notes extends rcube_plugin
             '',
             $this->content->sanitizeHtml((string) ($note['body_html'] ?? ''))
         );
+        $preview_id = 'imap-notes-rendered-preview';
 
         $out = '<div class="imap-notes-editor">';
         if ($conflict) {
@@ -201,7 +202,7 @@ class imap_notes extends rcube_plugin
         $out .= '<label class="field"><span>' . $this->escape($this->gettext('title')) . '</span><input type="text" name="title" value="' . $title . '"' . ($read_only ? ' readonly="readonly"' : '') . ' /></label>';
         $out .= '<label class="field grow"><span>' . $this->escape($this->gettext('body')) . '</span><textarea name="body" rows="18"' . ($read_only ? ' readonly="readonly"' : '') . '>' . $body . '</textarea></label>';
         if ($read_only && $read_only_html !== '') {
-            $out .= '<div class="imap-notes-rendered"><div class="label">' . $this->escape($this->gettext('renderedpreview')) . '</div>' . $read_only_html . '</div>';
+            $out .= '<div class="imap-notes-rendered" role="region" aria-labelledby="' . $preview_id . '"><div class="label" id="' . $preview_id . '">' . $this->escape($this->gettext('renderedpreview')) . '</div>' . $read_only_html . '</div>';
         }
         $out .= '<div class="actions">';
         if ($conflict) {

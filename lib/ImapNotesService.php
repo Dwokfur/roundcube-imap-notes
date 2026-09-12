@@ -140,6 +140,18 @@ class ImapNotesService
         $folder = $this->storage->ensureFolder();
         $state = $this->extractState($input);
         $result = $this->storage->deleteRevision($folder, $state);
+        if (!empty($result['error'])) {
+            $view = $this->view($state['note_key'] ?? null);
+
+            return [
+                'status' => 'error',
+                'message' => $result['error'],
+                'selected' => $view['selected'],
+                'notes' => $view['notes'],
+                'folder' => $view['folder'],
+            ];
+        }
+
         $view = $this->view();
 
         return [

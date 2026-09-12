@@ -32,4 +32,13 @@ class ImapNotesContentTest extends TestCase
         $this->assertSame('First body line', $content->deriveTitle('', "\n\nFirst body line\nSecond line", 'Untitled note'));
         $this->assertSame('Untitled note', $content->deriveTitle('', "\n\n", 'Untitled note'));
     }
+
+    public function testSanitizerHandlesMalformedHtmlAndPreservesSafeLinks()
+    {
+        $content = new ImapNotesContent();
+        $safe = $content->sanitizeHtml('<p><strong>Bold<a href="https://example.com" target="_blank">link');
+
+        $this->assertStringContainsString('<strong>Bold<a href="https://example.com" rel="noopener noreferrer nofollow">link</a></strong>', $safe);
+        $this->assertStringNotContainsString('target=', $safe);
+    }
 }

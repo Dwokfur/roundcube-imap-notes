@@ -67,9 +67,11 @@ class ImapNotesRoundcubeStorage implements ImapNotesStorageInterface
         $current_uidvalidity = isset($folder_data['UIDVALIDITY']) ? (string) $folder_data['UIDVALIDITY'] : '';
 
         if (!empty($state['uidvalidity']) && $current_uidvalidity !== '' && $state['uidvalidity'] !== $current_uidvalidity) {
+            $current = $this->findCurrentByLogicalUuid($folder, $state['logical_uuid']);
+
             return [
-                'status' => 'conflict',
-                'current' => $this->findCurrentByLogicalUuid($folder, $state['logical_uuid']),
+                'status' => $current ? 'conflict' : 'missing',
+                'current' => $current,
             ];
         }
 
@@ -172,9 +174,16 @@ class ImapNotesRoundcubeStorage implements ImapNotesStorageInterface
             return ['cleanup_pending' => false];
         }
 
-        if ($trash && $storage->move_message($uid, $trash, $folder)) {
-            $this->clearHiddenDeferredUid($folder, $uid);
-            return ['cleanup_pending' => false];
+        if ($trash) {
+            if ($storage->move_message($uid, $trash, $folder)) {
+                $this->clearHiddenDeferredUid($folder, $uid);
+                return ['cleanup_pending' => false];
+            }
+
+            return [
+                'cleanup_pending' => false,
+                'error' => 'The note could not be moved to Trash.',
+            ];
         }
 
         if (!$storage->set_flag($uid, 'DELETED', $folder)) {
@@ -207,6 +216,11 @@ class ImapNotesRoundcubeStorage implements ImapNotesStorageInterface
         }
 
         if (!$storage->get_capability('UIDPLUS')) {
+            $this->hideDeferredUid($folder, $uid);
+            return ['cleanup_pending' => true];
+        }
+
+        if (!$storage->set_flag($uid, 'DELETED', $folder)) {
             $this->hideDeferredUid($folder, $uid);
             return ['cleanup_pending' => true];
         }
@@ -331,12 +345,17 @@ class ImapNotesRoundcubeStorage implements ImapNotesStorageInterface
         $search = 'HEADER X-Universally-Unique-Identifier ' . $this->imapQuotedString($logical_uuid) . ' UNDELETED';
         $result = $this->rcmail->get_storage()->search_once($folder, $search);
         $uids = method_exists($result, 'get') ? $result->get() : [];
+        $hidden = $this->hiddenDeferredUids($folder);
         if (empty($uids)) {
             return null;
         }
 
         $revisions = [];
         foreach ($uids as $uid) {
+            if (isset($hidden[(string) $uid])) {
+                continue;
+            }
+
             $note = $this->buildNoteFromMessage($folder, $uid);
             if ($note) {
                 $revisions[] = $note;
