@@ -21,6 +21,24 @@ class ImapNotesServiceTest extends TestCase
         $this->assertSame('Remote', $result['conflict']['title']);
     }
 
+    public function testMissingCurrentRevisionStillAllowsSave()
+    {
+        $storage = new ImapNotesServiceTestStorage(['status' => 'missing']);
+        $service = new ImapNotesService($storage, new ImapNotesContent(), new ImapNotesMessage(), new ImapNotesRevisionResolver(), new ImapNotesConflictResolver());
+
+        $result = $service->save([
+            'uid' => '1',
+            'uidvalidity' => '22',
+            'logical_uuid' => '11111111-1111-4111-8111-111111111111',
+            'updated_at' => '2026-09-12T13:00:00Z',
+            'fingerprint' => 'old',
+            'title' => 'Mine',
+            'body' => 'Body',
+        ], 'Untitled note');
+
+        $this->assertSame('saved', $result['status']);
+    }
+
     public function testConflictCopyCreatesNewLogicalUuid()
     {
         $storage = new ImapNotesServiceTestStorage(['status' => 'conflict', 'current' => ['note_key' => 'remote', 'title' => 'Remote']]);

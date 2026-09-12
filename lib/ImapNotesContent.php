@@ -208,6 +208,13 @@ class ImapNotesContent
             return $value;
         }
 
-        return mb_convert_encoding($value, 'UTF-8', 'UTF-8');
+        $encoding = mb_detect_encoding($value, ['UTF-8', 'Windows-1252', 'ISO-8859-1'], true);
+        if ($encoding) {
+            return mb_convert_encoding($value, 'UTF-8', $encoding);
+        }
+
+        $converted = @iconv('UTF-8', 'UTF-8//IGNORE', $value);
+
+        return $converted !== false ? $converted : $value;
     }
 }

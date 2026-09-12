@@ -50,4 +50,12 @@ class ImapNotesContentTest extends TestCase
         $this->assertStringNotContainsString('//example.com/path', $safe);
         $this->assertStringContainsString('<a>link</a>', $safe);
     }
+
+    public function testNormalizePlainTextConvertsLikelyLegacyEncoding()
+    {
+        $content = new ImapNotesContent();
+        $latin1 = mb_convert_encoding('café', 'ISO-8859-1', 'UTF-8');
+
+        $this->assertSame('café', $content->normalizePlainText($latin1));
+    }
 }

@@ -10,6 +10,10 @@ class ImapNotesConflictResolver
             return ['status' => 'proceed', 'copy' => false, 'overwrite' => false];
         }
 
+        if ($status === 'missing') {
+            return ['status' => 'proceed', 'copy' => false, 'overwrite' => false];
+        }
+
         if ($decision === 'reload') {
             return ['status' => 'reload'];
         }
