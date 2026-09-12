@@ -1,0 +1,145 @@
+<?php
+
+use PHPUnit\Framework\TestCase;
+
+class ImapNotesServiceTest extends TestCase
+{
+    public function testConflictWithoutDecisionReturnsConflict()
+    {
+        $service = $this->buildService(['status' => 'conflict', 'current' => ['note_key' => 'remote', 'title' => 'Remote']]);
+        $result = $service->save([
+            'uid' => '1',
+            'uidvalidity' => '22',
+            'logical_uuid' => 'abc',
+            'updated_at' => '2026-09-12T13:00:00Z',
+            'fingerprint' => 'old',
+            'title' => 'Mine',
+            'body' => 'Body',
+        ], 'Untitled note');
+
+        $this->assertSame('conflict', $result['status']);
+        $this->assertSame('Remote', $result['conflict']['title']);
+    }
+
+    public function testConflictCopyCreatesNewLogicalUuid()
+    {
+        $storage = new ImapNotesServiceTestStorage(['status' => 'conflict', 'current' => ['note_key' => 'remote', 'title' => 'Remote']]);
+        $service = new ImapNotesService($storage, new ImapNotesContent(), new ImapNotesMessage(), new ImapNotesRevisionResolver(), new ImapNotesConflictResolver());
+
+        $result = $service->save([
+            'uid' => '1',
+            'uidvalidity' => '22',
+            'logical_uuid' => '11111111-1111-4111-8111-111111111111',
+            'updated_at' => '2026-09-12T13:00:00Z',
+            'fingerprint' => 'old',
+            'title' => 'Mine',
+            'body' => 'Body',
+            'conflict_decision' => 'copy',
+        ], 'Untitled note');
+
+        $this->assertSame('saved_copy', $result['status']);
+        $this->assertNotSame('11111111-1111-4111-8111-111111111111', $storage->last_append['logical_uuid']);
+        $this->assertNull($storage->retire_called_with);
+    }
+
+    private function buildService(array $conflict_state)
+    {
+        return new ImapNotesService(
+            new ImapNotesServiceTestStorage($conflict_state),
+            new ImapNotesContent(),
+            new ImapNotesMessage(),
+            new ImapNotesRevisionResolver(),
+            new ImapNotesConflictResolver()
+        );
+    }
+}
+
+class ImapNotesServiceTestStorage implements ImapNotesStorageInterface
+{
+    public $conflict_state;
+    public $last_append;
+    public $retire_called_with;
+
+    public function __construct(array $conflict_state)
+    {
+        $this->conflict_state = $conflict_state;
+    }
+
+    public function ensureFolder()
+    {
+        return 'Notes';
+    }
+
+    public function listRevisions($folder)
+    {
+        return [];
+    }
+
+    public function loadRevision($folder, $note_key)
+    {
+        if ($note_key === 'saved-note') {
+            return [
+                'note_key' => 'saved-note',
+                'mailbox' => $folder,
+                'uid' => '2',
+                'uidvalidity' => '22',
+                'modseq' => '',
+                'logical_uuid' => $this->last_append['logical_uuid'],
+                'updated_at' => $this->last_append['updated_at'],
+                'title' => $this->last_append['subject'],
+                'preview' => 'Body',
+                'body_text' => 'Body',
+                'body_html' => $this->last_append['html'],
+                'fingerprint' => 'fp',
+                'read_only' => false,
+                'read_only_reason' => '',
+                'cleanup_pending' => false,
+                'cleanup_pending_target_uid' => '',
+                'plugin_managed' => true,
+                'legacy_apple' => true,
+                'imported' => false,
+            ];
+        }
+
+        return null;
+    }
+
+    public function checkCurrentRevision($folder, array $state)
+    {
+        return $this->conflict_state;
+    }
+
+    public function appendRevision($folder, array $message, array $note_data)
+    {
+        $this->last_append = $message;
+
+        return [
+            'success' => true,
+            'revision' => [
+                'note_key' => 'saved-note',
+                'uid' => '2',
+                'logical_uuid' => $message['logical_uuid'],
+                'updated_at' => $message['updated_at'],
+                'title' => $note_data['title'],
+                'fingerprint' => $note_data['fingerprint'],
+            ],
+        ];
+    }
+
+    public function retireRevision($folder, array $state, array $new_revision, $force = false)
+    {
+        $this->retire_called_with = compact('folder', 'state', 'new_revision', 'force');
+
+        return ['cleanup_pending' => false];
+    }
+
+    public function deleteRevision($folder, array $state)
+    {
+        return ['cleanup_pending' => false];
+    }
+
+    public function retryCleanup($folder, array $state)
+    {
+        return ['cleanup_pending' => false];
+    }
+}

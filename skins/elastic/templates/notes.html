@@ -1,0 +1,22 @@
+<roundcube:include file="includes/layout.html" />
+<roundcube:include file="includes/menu.html" />
+
+<div id="layout-sidebar" class="listbox imap-notes-layout" role="navigation" aria-labelledby="aria-label-notesnav">
+	<div class="header">
+		<a class="button icon task-menu-button" href="#menu"><span class="inner"><roundcube:label name="menu" /></span></a>
+		<span id="aria-label-notesnav" class="header-title"><roundcube:label name="imap_notes.notes" /></span>
+	</div>
+	<div class="scroller"><roundcube:object name="imap_notes_list" /></div>
+</div>
+
+<h1 class="voice"><roundcube:label name="imap_notes.notes" /></h1>
+
+<div id="layout-content" class="selected imap-notes-main" role="main">
+	<div class="header">
+		<a class="button icon task-menu-button" href="#menu"><span class="inner"><roundcube:label name="menu" /></span></a>
+		<span class="header-title"><roundcube:label name="imap_notes.notes" /></span>
+	</div>
+	<div class="scroller"><roundcube:object name="imap_notes_editor" /></div>
+</div>
+
+<roundcube:include file="includes/footer.html" />

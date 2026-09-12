@@ -1,0 +1,161 @@
+#taskbar .button-notes .button-inner:before {
+  content: "📝";
+}
+
+.imap-notes-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.75rem;
+}
+
+.imap-notes-folder {
+  color: var(--layout-sidebar-text-secondary-color, #666);
+  font-size: 0.9rem;
+  word-break: break-word;
+}
+
+.imap-notes-sidebar .button.create,
+.imap-notes-editor button {
+  appearance: none;
+  border: 1px solid var(--button-border-color, #c7c7c7);
+  background: var(--button-background-color, #f7f7f7);
+  border-radius: 0.25rem;
+  padding: 0.55rem 0.8rem;
+  cursor: pointer;
+}
+
+.imap-notes-sidebar .button.create,
+.imap-notes-list a {
+  display: block;
+}
+
+.imap-notes-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.imap-note-item a {
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--color-border, #ddd);
+  border-radius: 0.35rem;
+  text-decoration: none;
+  color: inherit;
+}
+
+.imap-note-item.selected a {
+  border-color: var(--color-primary, #2c7be5);
+  background: rgba(44, 123, 229, 0.08);
+}
+
+.imap-note-item.cleanup-pending a {
+  border-style: dashed;
+}
+
+.imap-note-item .title,
+.imap-note-item .preview {
+  display: block;
+}
+
+.imap-note-item .title {
+  font-weight: 600;
+}
+
+.imap-note-item .preview {
+  margin-top: 0.35rem;
+  color: var(--layout-sidebar-text-secondary-color, #666);
+  font-size: 0.9rem;
+}
+
+.imap-notes-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.imap-notes-editor .field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.imap-notes-editor .field.grow,
+.imap-notes-editor textarea {
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.imap-notes-editor input[type="text"],
+.imap-notes-editor textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--color-border, #ddd);
+  border-radius: 0.35rem;
+  padding: 0.7rem;
+  font: inherit;
+}
+
+.imap-notes-editor textarea {
+  resize: vertical;
+  min-height: 18rem;
+}
+
+.imap-notes-editor .note-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  height: 100%;
+}
+
+.imap-notes-editor .actions,
+.imap-notes-editor .note-delete-form,
+.imap-notes-editor .note-cleanup-form {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.imap-notes-rendered {
+  border: 1px solid var(--color-border, #ddd);
+  border-radius: 0.35rem;
+  padding: 0.75rem;
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.imap-notes-rendered .label {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.imap-notes-editor .main-action {
+  background: var(--button-primary-background-color, #2c7be5);
+  color: var(--button-primary-text-color, #fff);
+}
+
+.imap-notes-banner {
+  border-radius: 0.35rem;
+  padding: 0.75rem 0.9rem;
+}
+
+.imap-notes-banner.warning {
+  background: rgba(255, 193, 7, 0.15);
+}
+
+.imap-notes-banner.info {
+  background: rgba(44, 123, 229, 0.08);
+}
+
+@media (max-width: 900px) {
+  .imap-notes-editor {
+    padding: 0.75rem;
+  }
+
+  .imap-notes-editor textarea {
+    min-height: 14rem;
+  }
+}
