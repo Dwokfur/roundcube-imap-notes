@@ -76,8 +76,13 @@ class imap_notes extends rcube_plugin
     {
         try {
             $result = $this->service->save($_POST, $this->gettext('untitlednote'));
-            $view = $this->service->view($result['selected']['note_key'] ?? null);
-            $view['selected'] = array_merge($view['selected'], $result['selected'] ?? []);
+            if ($result['status'] === 'reloaded') {
+                $view = $this->service->view();
+                $view['selected'] = $result['selected'];
+            } else {
+                $view = $this->service->view($result['selected']['note_key'] ?? null);
+                $view['selected'] = array_merge($view['selected'], $result['selected'] ?? []);
+            }
             if (!empty($result['conflict'])) {
                 $view['conflict'] = $result['conflict'];
             }
@@ -264,11 +269,11 @@ class imap_notes extends rcube_plugin
 
     private function messageType($status)
     {
-        if (in_array($status, ['error', 'conflict'], true)) {
+        if ($status === 'error') {
             return 'error';
         }
 
-        if (in_array($status, ['cleanup_pending', 'delete_cleanup_pending'], true)) {
+        if (in_array($status, ['conflict', 'cleanup_pending', 'delete_cleanup_pending'], true)) {
             return 'warning';
         }
 

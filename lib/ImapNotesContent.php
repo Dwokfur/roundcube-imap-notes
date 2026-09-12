@@ -89,7 +89,7 @@ class ImapNotesContent
     {
         $html = $this->sanitizeHtml($html);
         $body = preg_replace('/<\s*br\s*\/?>/i', "\n", $html);
-        $body = preg_replace('/<\/(p|div|h[1-6]|li|blockquote|pre|ul|ol)>/i', "$0\n", $body);
+        $body = preg_replace('/<\/(p|div|h[1-6]|li|blockquote|pre)>/i', "$0\n", $body);
         $body = strip_tags($body);
         $body = html_entity_decode($body, ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5, 'UTF-8');
         $body = $this->normalizePlainText($body);
