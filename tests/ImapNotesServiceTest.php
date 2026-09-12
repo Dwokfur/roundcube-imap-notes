@@ -42,6 +42,28 @@ class ImapNotesServiceTest extends TestCase
         $this->assertNull($storage->retire_called_with);
     }
 
+    public function testConflictOverwritePreservesLogicalUuidAndRetiresPriorRevision()
+    {
+        $storage = new ImapNotesServiceTestStorage(['status' => 'conflict', 'current' => ['note_key' => 'remote', 'title' => 'Remote']]);
+        $service = new ImapNotesService($storage, new ImapNotesContent(), new ImapNotesMessage(), new ImapNotesRevisionResolver(), new ImapNotesConflictResolver());
+
+        $result = $service->save([
+            'uid' => '1',
+            'uidvalidity' => '22',
+            'logical_uuid' => '11111111-1111-4111-8111-111111111111',
+            'updated_at' => '2026-09-12T13:00:00Z',
+            'fingerprint' => 'old',
+            'title' => 'Mine',
+            'body' => 'Body',
+            'conflict_decision' => 'overwrite',
+        ], 'Untitled note');
+
+        $this->assertSame('saved', $result['status']);
+        $this->assertSame('11111111-1111-4111-8111-111111111111', $storage->last_append['logical_uuid']);
+        $this->assertNotNull($storage->retire_called_with);
+        $this->assertSame('1', $storage->retire_called_with['state']['uid']);
+    }
+
     private function buildService(array $conflict_state)
     {
         return new ImapNotesService(

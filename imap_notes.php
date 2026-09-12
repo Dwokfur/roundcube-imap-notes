@@ -260,7 +260,15 @@ class imap_notes extends rcube_plugin
 
     private function messageType($status)
     {
-        return in_array($status, ['error', 'conflict'], true) ? 'error' : 'confirmation';
+        if (in_array($status, ['error', 'conflict'], true)) {
+            return 'error';
+        }
+
+        if ($status === 'cleanup_pending') {
+            return 'warning';
+        }
+
+        return 'confirmation';
     }
 
     private function gettextForResult(array $result)

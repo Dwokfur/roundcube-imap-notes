@@ -243,7 +243,7 @@ class ImapNotesRoundcubeStorage implements ImapNotesStorageInterface
         } elseif ($mimetype === 'text/html') {
             $body_html = $this->content->sanitizeHtml($body);
             $body_text = $this->content->htmlToText($body);
-        } elseif (in_array($mimetype, ['text/enriched', 'text/markdown', 'text/x-markdown'], true)) {
+        } elseif (in_array($mimetype, ['text/markdown', 'text/x-markdown'], true)) {
             $body_text = $this->content->normalizePlainText($body);
             $body_html = $this->content->textToSafeHtml($body_text);
         } elseif ($part) {
