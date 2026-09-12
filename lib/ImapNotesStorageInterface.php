@@ -12,7 +12,7 @@ interface ImapNotesStorageInterface
 
     public function appendRevision($folder, array $message, array $note_data);
 
-    public function retireRevision($folder, array $state, array $new_revision, $force = false);
+    public function retireRevision($folder, array $state, array $new_revision);
 
     public function deleteRevision($folder, array $state);
 

@@ -129,7 +129,7 @@ class ImapNotesRoundcubeStorage implements ImapNotesStorageInterface
         ];
     }
 
-    public function retireRevision($folder, array $state, array $new_revision, $force = false)
+    public function retireRevision($folder, array $state, array $new_revision)
     {
         $storage = $this->rcmail->get_storage();
         $uid = (string) $state['uid'];
@@ -240,9 +240,12 @@ class ImapNotesRoundcubeStorage implements ImapNotesStorageInterface
         if ($mimetype === 'text/plain') {
             $body_text = $this->content->normalizePlainText($body);
             $body_html = $this->content->textToSafeHtml($body_text);
-        } elseif (in_array($mimetype, ['text/html', 'text/enriched', 'text/markdown', 'text/x-markdown'], true)) {
+        } elseif ($mimetype === 'text/html') {
             $body_html = $this->content->sanitizeHtml($body);
             $body_text = $this->content->htmlToText($body);
+        } elseif (in_array($mimetype, ['text/enriched', 'text/markdown', 'text/x-markdown'], true)) {
+            $body_text = $this->content->normalizePlainText($body);
+            $body_html = $this->content->textToSafeHtml($body_text);
         } elseif ($part) {
             $body_text = $this->content->normalizePlainText($body);
             $body_html = $this->content->textToSafeHtml($body_text);

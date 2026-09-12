@@ -104,7 +104,7 @@ class ImapNotesService
 
         $cleanup_pending = false;
         if (!empty($state['uid']) && empty($decision['copy'])) {
-            $cleanup = $this->storage->retireRevision($folder, $state, $append['revision'], !empty($decision['overwrite']));
+            $cleanup = $this->storage->retireRevision($folder, $state, $append['revision']);
             $cleanup_pending = !empty($cleanup['cleanup_pending']);
         }
 

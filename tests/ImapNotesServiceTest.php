@@ -126,9 +126,9 @@ class ImapNotesServiceTestStorage implements ImapNotesStorageInterface
         ];
     }
 
-    public function retireRevision($folder, array $state, array $new_revision, $force = false)
+    public function retireRevision($folder, array $state, array $new_revision)
     {
-        $this->retire_called_with = compact('folder', 'state', 'new_revision', 'force');
+        $this->retire_called_with = compact('folder', 'state', 'new_revision');
 
         return ['cleanup_pending' => false];
     }

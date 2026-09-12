@@ -129,7 +129,7 @@ class imap_notes extends rcube_plugin
         $out = '<div class="imap-notes-sidebar">';
         $out .= '<div class="imap-notes-folder">' . $this->escape($this->view_data['folder']) . '</div>';
         $out .= '<a class="button create" href="' . $this->escape($this->rc->url(['task' => 'imap_notes', 'action' => 'index'])) . '">' . $this->escape($this->gettext('newnote')) . '</a>';
-        $out .= '<ul class="listing imap-notes-list">';
+        $out .= '<ul class="listing imap-notes-list" role="list">';
 
         $selected_key = $this->view_data['selected']['note_key'] ?? '';
         foreach ((array) $this->view_data['notes'] as $note) {
