@@ -109,6 +109,20 @@ class ImapNotesService
         }
 
         $selected = $this->storage->loadRevision($folder, $append['revision']['note_key']);
+        if (!$selected) {
+            $selected = array_merge($this->blankNote($folder), $append['revision'], [
+                'mailbox' => $folder,
+                'title' => $title,
+                'preview' => $this->content->previewText($body),
+                'body_text' => $body,
+                'body_html' => $html,
+                'fingerprint' => $this->content->fingerprint($title, $body),
+                'plugin_managed' => true,
+                'legacy_apple' => true,
+                'imported' => false,
+            ]);
+        }
+
         if ($cleanup_pending) {
             $selected['cleanup_pending'] = true;
             $selected['cleanup_pending_target_uid'] = $state['uid'];

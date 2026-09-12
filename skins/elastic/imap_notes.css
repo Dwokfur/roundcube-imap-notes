@@ -1,5 +1,9 @@
 #taskbar .button-notes .button-inner:before {
-  content: "📝";
+  content: "";
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  background: center / contain no-repeat url("./images/notes.svg");
 }
 
 .imap-notes-sidebar {

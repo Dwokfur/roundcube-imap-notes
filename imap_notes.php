@@ -169,7 +169,11 @@ class imap_notes extends rcube_plugin
         $title = $this->escape($note['title']);
         $body = htmlspecialchars($note['body_text'], ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5, 'UTF-8');
         $read_only = !empty($note['read_only']);
-        $read_only_html = preg_replace('/^<html><body>|<\\/body><\\/html>$/', '', (string) ($note['body_html'] ?? ''));
+        $read_only_html = preg_replace(
+            '/^<html><body>|<\\/body><\\/html>$/',
+            '',
+            $this->content->sanitizeHtml((string) ($note['body_html'] ?? ''))
+        );
 
         $out = '<div class="imap-notes-editor">';
         if ($conflict) {

@@ -48,7 +48,7 @@ class ImapNotesRoundcubeStorage implements ImapNotesStorageInterface
     public function loadRevision($folder, $note_key)
     {
         $data = self::decodeNoteKey($note_key);
-        if (empty($data['uid'])) {
+        if (empty($data['uid']) || (!empty($data['mailbox']) && $data['mailbox'] !== $folder)) {
             return null;
         }
 
@@ -299,22 +299,16 @@ class ImapNotesRoundcubeStorage implements ImapNotesStorageInterface
             return null;
         }
 
-        $revisions = [];
+        rsort($uids, SORT_NUMERIC);
+
         foreach ($uids as $uid) {
             $note = $this->buildNoteFromMessage($folder, $uid);
             if ($note) {
-                $revisions[] = $note;
+                return $note;
             }
         }
 
-        if (empty($revisions)) {
-            return null;
-        }
-
-        $resolver = new ImapNotesRevisionResolver();
-        $selected = $resolver->selectDisplayNotes($revisions);
-
-        return $selected['active'][0] ?? null;
+        return null;
     }
 
     private function lookupAppendedUid($folder, array $message)
