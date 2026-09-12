@@ -63,7 +63,8 @@ class ImapNotesService
             ];
         }
 
-        $conflict_state = !empty($state['uid']) ? $this->storage->checkCurrentRevision($folder, $state) : ['status' => 'ok'];
+        $has_existing_identity = !empty($state['uid']) || !empty($state['note_key']) || !empty($state['logical_uuid']);
+        $conflict_state = $has_existing_identity ? $this->storage->checkCurrentRevision($folder, $state) : ['status' => 'ok'];
         $decision = $this->conflicts->resolve($conflict_state, $input['conflict_decision'] ?? null);
 
         if ($decision['status'] === 'reload') {

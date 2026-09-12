@@ -185,6 +185,10 @@ class ImapNotesContent
             return true;
         }
 
+        if (strpos($href, '//') === 0) {
+            return false;
+        }
+
         $scheme = parse_url($href, PHP_URL_SCHEME);
         if ($scheme === null) {
             return true;

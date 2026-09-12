@@ -174,16 +174,9 @@ class ImapNotesRoundcubeStorage implements ImapNotesStorageInterface
             return ['cleanup_pending' => false];
         }
 
-        if ($trash) {
-            if ($storage->move_message($uid, $trash, $folder)) {
-                $this->clearHiddenDeferredUid($folder, $uid);
-                return ['cleanup_pending' => false];
-            }
-
-            return [
-                'cleanup_pending' => false,
-                'error' => 'The note could not be moved to Trash.',
-            ];
+        if ($trash && $storage->move_message($uid, $trash, $folder)) {
+            $this->clearHiddenDeferredUid($folder, $uid);
+            return ['cleanup_pending' => false];
         }
 
         if (!$storage->set_flag($uid, 'DELETED', $folder)) {

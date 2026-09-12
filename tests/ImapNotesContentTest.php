@@ -41,4 +41,13 @@ class ImapNotesContentTest extends TestCase
         $this->assertStringContainsString('<strong>Bold<a href="https://example.com" rel="noopener noreferrer nofollow">link</a></strong>', $safe);
         $this->assertStringNotContainsString('target=', $safe);
     }
+
+    public function testSanitizerRejectsSchemeRelativeLinks()
+    {
+        $content = new ImapNotesContent();
+        $safe = $content->sanitizeHtml('<a href="//example.com/path">link</a>');
+
+        $this->assertStringNotContainsString('//example.com/path', $safe);
+        $this->assertStringContainsString('<a>link</a>', $safe);
+    }
 }

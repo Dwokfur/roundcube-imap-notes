@@ -52,7 +52,10 @@ class imap_notes extends rcube_plugin
             ], 'taskbar');
         }
 
-        $this->include_stylesheet($this->local_skin_path() . '/imap_notes.css');
+        $this->include_stylesheet($this->local_skin_path() . '/imap_notes_taskbar.css');
+        if ($this->rc->task === 'imap_notes') {
+            $this->include_stylesheet($this->local_skin_path() . '/imap_notes.css');
+        }
 
         return $args;
     }
