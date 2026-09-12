@@ -15,12 +15,13 @@ class ImapNotesContentTest extends TestCase
     public function testSanitizerRemovesScriptsEventHandlersAndRemoteImages()
     {
         $content = new ImapNotesContent();
-        $safe = $content->sanitizeHtml('<p onclick="alert(1)">Hi<script>alert(1)</script><img src="https://example.com/x.png" /><a href="javascript:alert(1)">x</a></p>');
+        $safe = $content->sanitizeHtml('<p onclick="alert(1)">Hi<script>alert(1)</script><img src="https://example.com/x.png" /><a href="javascript:alert(1)" target="_blank">x</a></p>');
 
         $this->assertStringNotContainsString('script', $safe);
         $this->assertStringNotContainsString('onclick', $safe);
         $this->assertStringNotContainsString('img', $safe);
         $this->assertStringNotContainsString('javascript:', $safe);
+        $this->assertStringNotContainsString('target=', $safe);
         $this->assertStringContainsString('<p>Hi<a>x</a></p>', $safe);
     }
 

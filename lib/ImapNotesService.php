@@ -143,7 +143,7 @@ class ImapNotesService
         $view = $this->view();
 
         return [
-            'status' => !empty($result['cleanup_pending']) ? 'cleanup_pending' : 'deleted',
+            'status' => !empty($result['cleanup_pending']) ? 'delete_cleanup_pending' : 'deleted',
             'message' => !empty($result['cleanup_pending'])
                 ? 'Note hidden; final cleanup is pending.'
                 : 'Note deleted.',

@@ -189,7 +189,7 @@ class imap_notes extends rcube_plugin
         }
 
         if (!empty($note['cleanup_pending'])) {
-            $out .= '<div class="imap-notes-banner info">' . $this->escape($this->gettext('cleanuppending')) . '</div>';
+            $out .= '<div class="imap-notes-banner info">' . $this->escape($this->gettext('revisioncleanuppending')) . '</div>';
         }
 
         $out .= '<form class="note-form" method="post" action="' . $this->escape($save_url) . '">';
@@ -264,7 +264,7 @@ class imap_notes extends rcube_plugin
             return 'error';
         }
 
-        if ($status === 'cleanup_pending') {
+        if (in_array($status, ['cleanup_pending', 'delete_cleanup_pending'], true)) {
             return 'warning';
         }
 
@@ -277,6 +277,7 @@ class imap_notes extends rcube_plugin
             'saved' => 'saved',
             'saved_copy' => 'savedcopy',
             'deleted' => 'deleted',
+            'delete_cleanup_pending' => 'deletecleanuppending',
             'cleanup_pending' => 'cleanuppending',
             'cleaned' => 'cleanupdone',
             'reloaded' => 'reloaded',

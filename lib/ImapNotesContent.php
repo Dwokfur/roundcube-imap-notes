@@ -158,7 +158,7 @@ class ImapNotesContent
             $name = strtolower($attribute->name);
             $value = trim($attribute->value);
 
-            if (strpos($name, 'on') === 0 || in_array($name, ['style', 'src', 'srcset', 'action', 'formaction'], true)) {
+            if (strpos($name, 'on') === 0 || in_array($name, ['style', 'src', 'srcset', 'action', 'formaction', 'target'], true)) {
                 $element->removeAttributeNode($attribute);
                 continue;
             }
