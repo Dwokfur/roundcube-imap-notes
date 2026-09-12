@@ -78,7 +78,7 @@ class ImapNotesService
             return [
                 'status' => 'conflict',
                 'message' => 'This note changed on the server before your save completed.',
-                'selected' => array_merge($this->blankNote($folder), $state, ['title' => $title, 'body_text' => $body]),
+                'selected' => array_merge($this->blankNote($folder), $state, ['note_key' => '', 'title' => $title, 'body_text' => $body]),
                 'conflict' => $conflict_state['current'] ?? null,
             ];
         }

@@ -33,9 +33,14 @@ class ImapNotesRoundcubeStorage implements ImapNotesStorageInterface
         $storage = $this->rcmail->get_storage();
         $index = $storage->search_once($folder, 'ALL UNDELETED');
         $uids = method_exists($index, 'get') ? $index->get() : [];
+        $hidden = $this->hiddenDeferredUids($folder);
         $notes = [];
 
         foreach ($uids as $uid) {
+            if (isset($hidden[(string) $uid])) {
+                continue;
+            }
+
             $note = $this->buildNoteFromMessage($folder, $uid);
             if ($note) {
                 $notes[] = $note;
@@ -142,8 +147,17 @@ class ImapNotesRoundcubeStorage implements ImapNotesStorageInterface
         }
 
         if ($storage->get_capability('UIDPLUS')) {
-            return ['cleanup_pending' => !$storage->expunge_message($uid, $folder, false)];
+            $pending = !$storage->expunge_message($uid, $folder, false);
+            if ($pending) {
+                $this->hideDeferredUid($folder, $uid);
+            } else {
+                $this->clearHiddenDeferredUid($folder, $uid);
+            }
+
+            return ['cleanup_pending' => $pending];
         }
+
+        $this->hideDeferredUid($folder, $uid);
 
         return ['cleanup_pending' => true];
     }
@@ -159,6 +173,7 @@ class ImapNotesRoundcubeStorage implements ImapNotesStorageInterface
         }
 
         if ($trash && $storage->move_message($uid, $trash, $folder)) {
+            $this->clearHiddenDeferredUid($folder, $uid);
             return ['cleanup_pending' => false];
         }
 
@@ -167,8 +182,17 @@ class ImapNotesRoundcubeStorage implements ImapNotesStorageInterface
         }
 
         if ($storage->get_capability('UIDPLUS')) {
-            return ['cleanup_pending' => !$storage->expunge_message($uid, $folder, false)];
+            $pending = !$storage->expunge_message($uid, $folder, false);
+            if ($pending) {
+                $this->hideDeferredUid($folder, $uid);
+            } else {
+                $this->clearHiddenDeferredUid($folder, $uid);
+            }
+
+            return ['cleanup_pending' => $pending];
         }
+
+        $this->hideDeferredUid($folder, $uid);
 
         return ['cleanup_pending' => true];
     }
@@ -183,10 +207,18 @@ class ImapNotesRoundcubeStorage implements ImapNotesStorageInterface
         }
 
         if (!$storage->get_capability('UIDPLUS')) {
+            $this->hideDeferredUid($folder, $uid);
             return ['cleanup_pending' => true];
         }
 
-        return ['cleanup_pending' => !$storage->expunge_message($uid, $folder, false)];
+        $pending = !$storage->expunge_message($uid, $folder, false);
+        if ($pending) {
+            $this->hideDeferredUid($folder, $uid);
+        } else {
+            $this->clearHiddenDeferredUid($folder, $uid);
+        }
+
+        return ['cleanup_pending' => $pending];
     }
 
     public static function encodeNoteKey($folder, $uid, $logical_uuid = null)
@@ -220,6 +252,7 @@ class ImapNotesRoundcubeStorage implements ImapNotesStorageInterface
         $storage = $this->rcmail->get_storage();
         $message = new rcube_message($uid, $folder, true);
         if (empty($message->headers)) {
+            $this->clearHiddenDeferredUid($folder, $uid);
             return null;
         }
 
@@ -273,7 +306,7 @@ class ImapNotesRoundcubeStorage implements ImapNotesStorageInterface
             'logical_uuid' => $logical_uuid,
             'message_id' => (string) $message->headers->get('message-id', false),
             'updated_at' => $updated_at,
-            'internal_date' => (string) $message->headers->get('date', false),
+            'internal_date' => (string) ($message->headers->internaldate ?? ''),
             'title' => $title,
             'preview' => $this->content->previewText($body_text),
             'body_text' => $body_text,
@@ -361,5 +394,41 @@ class ImapNotesRoundcubeStorage implements ImapNotesStorageInterface
     private function imapQuotedString($value)
     {
         return '"' . addcslashes((string) $value, '\\"') . '"';
+    }
+
+    private function hiddenDeferredUids($folder)
+    {
+        $all = $_SESSION['imap_notes_hidden_uids'] ?? [];
+
+        return !empty($all[$folder]) && is_array($all[$folder]) ? array_flip($all[$folder]) : [];
+    }
+
+    private function hideDeferredUid($folder, $uid)
+    {
+        if (empty($_SESSION['imap_notes_hidden_uids']) || !is_array($_SESSION['imap_notes_hidden_uids'])) {
+            $_SESSION['imap_notes_hidden_uids'] = [];
+        }
+
+        if (empty($_SESSION['imap_notes_hidden_uids'][$folder]) || !is_array($_SESSION['imap_notes_hidden_uids'][$folder])) {
+            $_SESSION['imap_notes_hidden_uids'][$folder] = [];
+        }
+
+        if (!in_array((string) $uid, $_SESSION['imap_notes_hidden_uids'][$folder], true)) {
+            $_SESSION['imap_notes_hidden_uids'][$folder][] = (string) $uid;
+        }
+    }
+
+    private function clearHiddenDeferredUid($folder, $uid)
+    {
+        if (empty($_SESSION['imap_notes_hidden_uids'][$folder]) || !is_array($_SESSION['imap_notes_hidden_uids'][$folder])) {
+            return;
+        }
+
+        $_SESSION['imap_notes_hidden_uids'][$folder] = array_values(array_filter(
+            $_SESSION['imap_notes_hidden_uids'][$folder],
+            function ($value) use ($uid) {
+                return (string) $value !== (string) $uid;
+            }
+        ));
     }
 }

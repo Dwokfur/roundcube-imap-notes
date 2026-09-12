@@ -151,7 +151,7 @@ class ImapNotesContent
     {
         $allowed = [];
         if ($tag === 'a') {
-            $allowed = ['href', 'title'];
+            $allowed = ['href', 'title', 'rel'];
         }
 
         foreach (iterator_to_array($element->attributes) as $attribute) {
