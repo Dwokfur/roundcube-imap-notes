@@ -241,12 +241,14 @@ class imap_notes extends rcube_plugin
         $out .= '</div></form>';
 
         if (!empty($note['uid']) && empty($note['read_only'])) {
+            $delete_confirm_id = 'imap-notes-delete-confirm-' . $field_suffix;
             $out .= '<form class="note-delete-form" method="post" action="' . $this->escape($delete_url) . '" data-confirm="' . $this->escape($this->gettext('deleteconfirm')) . '">';
             $out .= $this->hidden('_token', $token);
             foreach (['note_key', 'mailbox', 'uid', 'uidvalidity', 'logical_uuid', 'message_id', 'updated_at', 'created_at', 'fingerprint'] as $field) {
                 $out .= $this->hidden($field, $note[$field] ?? '');
             }
-            $out .= '<button type="submit" class="delete-button">' . $this->escape($this->gettext('delete')) . '</button>';
+            $out .= '<span class="voice" id="' . $this->escape($delete_confirm_id) . '">' . $this->escape($this->gettext('deleteconfirm')) . '</span>';
+            $out .= '<button type="submit" class="delete-button" aria-describedby="' . $this->escape($delete_confirm_id) . '">' . $this->escape($this->gettext('delete')) . '</button>';
             $out .= '</form>';
         }
 
