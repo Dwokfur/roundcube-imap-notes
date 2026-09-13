@@ -148,7 +148,7 @@ class ImapNotesService
 
         if ($cleanup_pending) {
             $selected['cleanup_pending'] = true;
-            $selected['cleanup_pending_target_uid'] = $state['uid'];
+            $selected['cleanup_pending_target_uid'] = (string) (($cleanup['entry']['uid'] ?? '') ?: ($state['uid'] ?? ''));
         }
 
         return [
@@ -163,6 +163,24 @@ class ImapNotesService
         $folder = $this->storage->ensureFolder();
         $state = $this->extractState($input);
         $result = $this->storage->deleteRevision($folder, $state);
+        if (($result['status'] ?? '') === 'conflict') {
+            $selected_key = !empty($result['current']['note_key']) ? $result['current']['note_key'] : null;
+            $view = $this->view($selected_key);
+            if (!empty($result['current'])) {
+                $view['selected'] = $result['current'];
+                $view['conflict'] = $result['current'];
+            }
+
+            return [
+                'status' => 'conflict',
+                'message' => $result['message'] ?? 'This note changed on the server before your delete completed.',
+                'selected' => $view['selected'],
+                'notes' => $view['notes'],
+                'folder' => $view['folder'],
+                'conflict' => $view['conflict'] ?? null,
+            ];
+        }
+
         if (!empty($result['error'])) {
             $view = $this->view($state['note_key'] ?? null);
 
@@ -201,7 +219,7 @@ class ImapNotesService
             'status' => empty($result['cleanup_pending']) ? 'cleaned' : 'cleanup_pending',
             'message' => empty($result['cleanup_pending'])
                 ? 'Deferred cleanup completed.'
-                : 'Cleanup is still pending on the server.',
+                : ($result['message'] ?? 'Cleanup is still pending on the server.'),
             'selected' => $view['selected'],
             'notes' => $view['notes'],
             'folder' => $view['folder'],
@@ -215,8 +233,8 @@ class ImapNotesService
             'mailbox' => $folder,
             'uid' => '',
             'uidvalidity' => '',
-            'modseq' => '',
             'logical_uuid' => '',
+            'message_id' => '',
             'updated_at' => '',
             'title' => '',
             'preview' => '',
@@ -240,8 +258,8 @@ class ImapNotesService
             'mailbox' => $input['mailbox'] ?? '',
             'uid' => $input['uid'] ?? '',
             'uidvalidity' => $input['uidvalidity'] ?? '',
-            'modseq' => $input['modseq'] ?? '',
             'logical_uuid' => $input['logical_uuid'] ?? '',
+            'message_id' => $input['message_id'] ?? '',
             'updated_at' => $input['updated_at'] ?? '',
             'fingerprint' => $input['fingerprint'] ?? '',
             'read_only' => !empty($input['read_only']),

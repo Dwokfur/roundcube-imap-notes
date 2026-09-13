@@ -63,18 +63,25 @@ Title fallback order:
 - Saving appends a new revision first.
 - If `APPENDUID` is available through Roundcube's storage layer, the new UID is used directly.
 - Otherwise the plugin performs a conservative lookup by fresh `Message-ID`, logical UUID, and update timestamp.
-- Only after the new revision is identified does the plugin mark the predecessor `\Deleted`.
+- Only after the new revision is identified does the plugin attempt to retire the predecessor revision.
+- Destructive operations never trust posted hidden fields alone. The plugin decodes the submitted `note_key`, re-resolves the configured notes folder server-side, reloads the target UID from IMAP, and re-checks UIDVALIDITY plus revision identity headers before mutating anything.
+- User-initiated delete requires the selected revision to still be the current active revision for its stable logical UUID when one is present; stale deletes are rejected with a reload/conflict outcome instead of silently deleting an older physical message.
+- Deferred cleanup is tracked as structured per-folder records keyed by resolved mailbox and UID, including UIDVALIDITY, logical UUID, and `Message-ID`, so a reused UID is never blindly marked `\Deleted`.
 - If the server advertises `UIDPLUS`, the plugin requests selective UID expunge for that predecessor.
 - If safe removal cannot be finished, the newest revision remains visible and cleanup is marked as pending.
 - Duplicate logical UUIDs are resolved by displaying only the newest revision by note-update timestamp, with message date fallback.
 
-Conflict handling blocks silent overwrite and offers:
+Conflict handling is best-effort, not a true conditional IMAP write. The plugin does not issue per-message CONDSTORE/`UNCHANGEDSINCE` operations; it relies on UIDVALIDITY, current-UID existence, `Message-ID`, logical UUID, note-update headers, and normalized-content fingerprints to detect likely conflicts.
+
+Save conflicts block silent overwrite and offer:
 
 - reload remote version
 - overwrite with my version
 - save mine as a copy
 
 Saving as a copy creates a new logical UUID.
+
+Delete conflicts do not offer overwrite semantics: the plugin reloads the current server state and requires the user to retry explicitly.
 
 ## Security model
 
@@ -93,7 +100,7 @@ Saving as a copy creates a new logical UUID.
 - Changing `imap_notes_folder` does not migrate existing notes.
 - The plugin aims for legacy Apple Mail IMAP-notes compatibility, not modern iCloud Notes synchronization.
 - When Trash is unavailable and `UIDPLUS` is unavailable, final deletion cleanup may remain deferred.
-- Roundcube's public storage APIs make folder-level mod-sequence data more accessible than full conditional note writes, so conflict checks fall back to UID existence plus metadata/body fingerprint validation where needed.
+- Roundcube's public storage APIs make folder-level mod-sequence data more accessible than full conditional note writes, so v1 uses best-effort revision checks instead of claiming per-message CONDSTORE protection.
 
 ## Testing
 
@@ -116,7 +123,7 @@ In a real Roundcube + Dovecot environment, verify:
 - `CAPABILITY` includes or omits `UIDPLUS` as expected.
 - Appends expose `APPENDUID` when supported.
 - Selective `UID EXPUNGE` works when `UIDPLUS` is present.
-- `CONDSTORE`/`HIGHESTMODSEQ` behavior matches the server's advertised capabilities.
+- Reload/conflict behavior still works correctly without relying on per-message `CONDSTORE`/`UNCHANGEDSINCE`.
 - The configured notes mailbox is auto-created when absent and permissions allow it.
 - Legacy Apple-marked notes and generic plain/html messages in the folder are listed safely.
 

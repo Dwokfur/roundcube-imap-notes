@@ -85,7 +85,7 @@ class ImapNotesServiceTest extends TestCase
     public function testDeleteReturnsCleanupPendingWhenFinalRemovalIsDeferred()
     {
         $storage = new ImapNotesServiceTestStorage(['status' => 'ok']);
-        $storage->delete_result = ['cleanup_pending' => true];
+        $storage->delete_result = ['status' => 'cleanup_pending', 'cleanup_pending' => true];
         $service = new ImapNotesService($storage, new ImapNotesContent(), new ImapNotesMessage(), new ImapNotesRevisionResolver(), new ImapNotesConflictResolver());
 
         $result = $service->delete([
@@ -96,10 +96,34 @@ class ImapNotesServiceTest extends TestCase
         $this->assertSame('delete_cleanup_pending', $result['status']);
     }
 
+    public function testDeleteConflictReturnsConflictAndReloadsCurrentRevision()
+    {
+        $storage = new ImapNotesServiceTestStorage(['status' => 'ok']);
+        $storage->delete_result = [
+            'status' => 'conflict',
+            'message' => 'Reload before deleting.',
+            'current' => [
+                'note_key' => 'saved-note',
+                'title' => 'Remote current',
+            ],
+        ];
+        $service = new ImapNotesService($storage, new ImapNotesContent(), new ImapNotesMessage(), new ImapNotesRevisionResolver(), new ImapNotesConflictResolver());
+
+        $result = $service->delete([
+            'note_key' => 'saved-note',
+            'uid' => '2',
+        ]);
+
+        $this->assertSame('conflict', $result['status']);
+        $this->assertSame('Reload before deleting.', $result['message']);
+        $this->assertSame('Remote current', $result['selected']['title']);
+        $this->assertSame('Remote current', $result['conflict']['title']);
+    }
+
     public function testRetryCleanupReturnsCleanedStatusAfterSuccess()
     {
         $storage = new ImapNotesServiceTestStorage(['status' => 'ok']);
-        $storage->retry_result = ['cleanup_pending' => false];
+        $storage->retry_result = ['status' => 'cleaned', 'cleanup_pending' => false];
         $service = new ImapNotesService($storage, new ImapNotesContent(), new ImapNotesMessage(), new ImapNotesRevisionResolver(), new ImapNotesConflictResolver());
 
         $result = $service->retryCleanup([
@@ -109,6 +133,15 @@ class ImapNotesServiceTest extends TestCase
         ]);
 
         $this->assertSame('cleaned', $result['status']);
+    }
+
+    public function testBlankNoteIncludesMessageIdButNotModseq()
+    {
+        $service = $this->buildService(['status' => 'ok']);
+        $note = $service->blankNote('Notes');
+
+        $this->assertArrayHasKey('message_id', $note);
+        $this->assertArrayNotHasKey('modseq', $note);
     }
 
     private function buildService(array $conflict_state)
@@ -167,8 +200,8 @@ class ImapNotesServiceTestStorage implements ImapNotesStorageInterface
                 'mailbox' => $folder,
                 'uid' => '2',
                 'uidvalidity' => '22',
-                'modseq' => '',
                 'logical_uuid' => $append['logical_uuid'],
+                'message_id' => '<saved@example.invalid>',
                 'updated_at' => $append['updated_at'],
                 'title' => $append['subject'],
                 'preview' => 'Body',
@@ -203,6 +236,7 @@ class ImapNotesServiceTestStorage implements ImapNotesStorageInterface
                 'note_key' => 'saved-note',
                 'uid' => '2',
                 'logical_uuid' => $message['logical_uuid'],
+                'message_id' => $message['message_id'],
                 'updated_at' => $message['updated_at'],
                 'title' => $note_data['title'],
                 'fingerprint' => $note_data['fingerprint'],
