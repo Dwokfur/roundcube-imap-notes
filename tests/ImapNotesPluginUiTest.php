@@ -164,7 +164,7 @@ class ImapNotesPluginUiTest extends TestCase
         $this->assertStringContainsString('role="status"', $html);
         $this->assertStringContainsString('data-confirm="Delete this note?"', $html);
         $this->assertStringContainsString('<form class="note-delete-form" method="post"', $html);
-        $this->assertStringContainsString('action="?task=imap_notes&amp;amp;action=delete"', $html);
+        $this->assertStringContainsString('action="?task=imap_notes&amp;action=delete"', $html);
         $this->assertStringContainsString('aria-describedby="imap-notes-delete-confirm-note-1-4"', $html);
         $this->assertStringContainsString('<span class="voice" id="imap-notes-delete-confirm-note-1-4">Delete this note?</span>', $html);
     }
@@ -226,7 +226,7 @@ class ImapNotesPluginUiTestFakeRcmail
 
     public function url(array $params)
     {
-        return '?' . http_build_query($params, '', '&amp;');
+        return '?' . http_build_query($params);
     }
 
     public function get_request_token()
