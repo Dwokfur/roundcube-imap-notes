@@ -73,6 +73,10 @@ class ImapNotesContent
         return $title . "\n\n" . $body;
     }
 
+    /**
+     * @param bool $eligible_for_title_strip Strip a single leading title line when the body is known to use title-prefixed note storage.
+     * @param bool $collapse_repeated_prefixes Collapse duplicated title-plus-blank-line prefixes for compatible imports before editing.
+     */
     public function normalizeImportedEditableBody($subject, $body_text, $eligible_for_title_strip, $collapse_repeated_prefixes = false)
     {
         $body_text = $this->normalizePlainText($body_text);
