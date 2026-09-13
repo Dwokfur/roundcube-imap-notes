@@ -51,11 +51,43 @@ class ImapNotesContentTest extends TestCase
         $this->assertStringContainsString('<a>link</a>', $safe);
     }
 
+    public function testSanitizeHtmlPreservesHungarianUtf8RoundTrip()
+    {
+        $content = new ImapNotesContent();
+        $html = '<p>Ez egy próba jegyzet áéíóöőúüű</p>';
+        $safe = $content->sanitizeHtml($html);
+
+        $this->assertStringContainsString('Ez egy próba jegyzet áéíóöőúüű', $safe);
+        $this->assertSame('Ez egy próba jegyzet áéíóöőúüű', $content->htmlToText($safe));
+    }
+
+    public function testSanitizeHtmlPreservesUnicodeOutsideLatin1()
+    {
+        $content = new ImapNotesContent();
+        $html = '<p>Ελληνικά — кириллица — 日本語 — 😀</p>';
+        $safe = $content->sanitizeHtml($html);
+
+        $this->assertStringContainsString('Ελληνικά — кириллица — 日本語 — 😀', $safe);
+        $this->assertSame('Ελληνικά — кириллица — 日本語 — 😀', $content->htmlToText($safe));
+    }
+
+    public function testSanitizeHtmlCanonicalizesFullDocumentWithoutNestedMarkup()
+    {
+        $content = new ImapNotesContent();
+        $safe = $content->sanitizeHtml('<html><head><title>Ignored</title><script>alert(1)</script></head><body><p>Visible <strong>text</strong></p></body></html>');
+
+        $this->assertSame('<html><body><p>Visible <strong>text</strong></p></body></html>', $safe);
+        $this->assertSame(1, substr_count($safe, '<html>'));
+        $this->assertSame(1, substr_count($safe, '<body>'));
+    }
+
     public function testNormalizePlainTextConvertsLikelyLegacyEncoding()
     {
         $content = new ImapNotesContent();
         $latin1 = mb_convert_encoding('café', 'ISO-8859-1', 'UTF-8');
+        $valid_utf8 = 'Próba 😀';
 
         $this->assertSame('café', $content->normalizePlainText($latin1));
+        $this->assertSame($valid_utf8, $content->normalizePlainText($valid_utf8));
     }
 }

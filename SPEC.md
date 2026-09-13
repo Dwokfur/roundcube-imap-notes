@@ -37,6 +37,8 @@ Each plugin-written physical revision is a single message with:
 - `Date: <RFC 5322 date>`
 - `Subject: <title>`
 
+Roundcube's message layer is responsible for runtime MIME transfer decoding and declared charset conversion when notes are read back from IMAP.
+
 ## Title derivation
 
 - user title if present
@@ -47,7 +49,7 @@ Each plugin-written physical revision is a single message with:
 
 - Editor input is plain text.
 - New/edited text is canonicalized into deterministic safe HTML.
-- Imported HTML is sanitized before display and before conversion back to editor text.
+- Imported HTML is sanitized before display and before conversion back to editor text, with UTF-8 parsing explicitly declared to libxml.
 - Saving imported or legacy-only notes upgrades them to the plugin-managed header set.
 
 ## Revision model

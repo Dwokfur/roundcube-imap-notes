@@ -33,7 +33,7 @@ The configured name is resolved with Roundcube's IMAP namespace support. The plu
 - Adds a dedicated **Notes** task to the Roundcube taskbar.
 - Lists notes from the configured mailbox.
 - Opens, creates, saves, deletes, and retries deferred cleanup for notes.
-- Stores plugin-managed notes as `text/html; charset=UTF-8` IMAP messages.
+- Stores plugin-managed notes as UTF-8 quoted-printable HTML IMAP messages (`Content-Type: text/html; charset=UTF-8`).
 - Accepts plugin-managed notes, legacy Apple-marked notes, and generic `text/plain`/`text/html` messages in the notes mailbox.
 - Shows unsupported multipart/attachment-bearing messages read-only instead of silently rewriting them.
 
@@ -48,6 +48,8 @@ Each plugin-written revision is a single HTML message with these headers:
 - `Message-ID: <fresh UUID-based ID>`
 - `Date: <current RFC 5322 date>`
 - `Subject: <title>`
+
+At runtime, IMAP transfer decoding and declared-body charset conversion are performed by Roundcube's message layer before the plugin sanitizes or renders note content.
 
 Title fallback order:
 
@@ -78,8 +80,9 @@ Saving as a copy creates a new logical UUID.
 
 - Editing is plain-text-first: users type text, not raw HTML.
 - New and edited note bodies are canonicalized into deterministic UTF-8 HTML paragraphs and line breaks.
-- Imported HTML is sanitized before display/import.
+- Imported HTML is sanitized before display/import, and the sanitizer parses supplied HTML explicitly as UTF-8.
 - The sanitizer strips scripts, event handlers, forms, frames, embeds, objects, styles, remote-loading image tags, and unsafe URI schemes.
+- The plugin does not guess-repair mojibake when the input is already valid UTF-8.
 - The list UI exposes only title/preview snippets, not full note bodies.
 - The plugin does not log or surface credentials.
 
