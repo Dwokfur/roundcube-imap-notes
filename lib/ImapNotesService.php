@@ -57,10 +57,12 @@ class ImapNotesService
         $body = $this->content->normalizePlainText($input['body'] ?? '');
         $title = $this->content->deriveTitle($input['title'] ?? '', $body, $fallback_title);
         $state = $this->extractState($input);
-        $existing_note = $this->loadExistingNoteForSave($folder, $state);
 
-        if ($this->shouldNormalizeCompatibleBody($existing_note)) {
-            $body = $this->content->normalizeImportedEditableBody($title, $body, true, true);
+        if ($this->submittedBodyStartsWithTitle($title, $body)) {
+            $existing_note = $this->loadExistingNoteForSave($folder, $state);
+            if ($this->shouldNormalizeCompatibleBody($existing_note)) {
+                $body = $this->content->normalizeImportedEditableBody($title, $body, true, true);
+            }
         }
 
         if (!empty($state['uid']) && !empty($state['read_only'])) {
@@ -304,5 +306,23 @@ class ImapNotesService
     private function shouldNormalizeCompatibleBody($note)
     {
         return !empty($note) && (!empty($note['plugin_managed']) || !empty($note['legacy_apple']));
+    }
+
+    private function submittedBodyStartsWithTitle($title, $body)
+    {
+        $normalized_title = trim(preg_replace('/[\s\p{Z}]+/u', ' ', $this->content->normalizePlainText((string) $title)));
+        if ($normalized_title === '') {
+            return false;
+        }
+
+        foreach (preg_split('/\n/', $this->content->normalizePlainText((string) $body)) as $line) {
+            if (trim($line) === '') {
+                continue;
+            }
+
+            return trim(preg_replace('/[\s\p{Z}]+/u', ' ', $this->content->normalizePlainText($line))) === $normalized_title;
+        }
+
+        return false;
     }
 }
