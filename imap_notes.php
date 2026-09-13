@@ -235,7 +235,7 @@ class imap_notes extends rcube_plugin
 
         $out .= '<form class="note-form" method="post" action="' . $this->escape($save_url) . '">';
         $out .= $this->hidden('_token', $token);
-        foreach (['note_key', 'mailbox', 'uid', 'uidvalidity', 'logical_uuid', 'message_id', 'updated_at', 'created_at', 'fingerprint'] as $field) {
+        foreach (['note_key', 'mailbox', 'uid', 'uidvalidity', 'logical_uuid', 'message_id', 'updated_at', 'created_at', 'fingerprint', 'plugin_managed', 'legacy_apple'] as $field) {
             $out .= $this->hidden($field, $note[$field] ?? '');
         }
         $out .= $this->hidden('read_only', $read_only ? '1' : '0');
