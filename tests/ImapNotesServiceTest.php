@@ -281,6 +281,35 @@ class ImapNotesServiceTest extends TestCase
         $this->assertSame('Ez egy próba jegyzet', $result['selected']['body_text']);
     }
 
+    public function testSaveKeepsSingleMatchingFirstLineWhenRepairingCompatibleBody()
+    {
+        $storage = new ImapNotesServiceTestStorage(['status' => 'missing']);
+        $service = new ImapNotesService(
+            $storage,
+            new ImapNotesContent(),
+            new ImapNotesMessage(),
+            new ImapNotesRevisionResolver(),
+            new ImapNotesConflictResolver(),
+            new ImapNotesServiceTestIdentityResolver('Tester <tester@example.test>')
+        );
+
+        $result = $service->save([
+            'note_key' => 'current-note',
+            'uid' => '4',
+            'uidvalidity' => '22',
+            'logical_uuid' => '11111111-1111-4111-8111-111111111111',
+            'updated_at' => '2026-09-12T13:00:00Z',
+            'fingerprint' => 'old',
+            'plugin_managed' => '1',
+            'legacy_apple' => '1',
+            'title' => 'Próba',
+            'body' => "Próba\n\nEz egy próba jegyzet",
+        ], 'Untitled note');
+
+        $this->assertSame('saved', $result['status']);
+        $this->assertStringContainsString("<p>Próba</p>\n<p>Próba</p>\n<p>Ez egy próba jegyzet</p>", $storage->last_append['html']);
+    }
+
     private function buildService(array $conflict_state)
     {
         return new ImapNotesService(

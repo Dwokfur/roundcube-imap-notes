@@ -130,6 +130,17 @@ class ImapNotesContentTest extends TestCase
         );
     }
 
+    public function testNormalizeImportedEditableBodyCanCollapseRepeatedPrefixesWithoutSingleStrip()
+    {
+        $content = new ImapNotesContent();
+        $body = "Próba\n\nPróba\n\nEz egy próba jegyzet";
+
+        $this->assertSame(
+            'Ez egy próba jegyzet',
+            $content->normalizeImportedEditableBody('Próba', $body, false, true)
+        );
+    }
+
     public function testNormalizeImportedEditableBodyKeepsCompatibleBodyWhenSubjectDoesNotMatch()
     {
         $content = new ImapNotesContent();

@@ -80,10 +80,6 @@ class ImapNotesContent
     public function normalizeImportedEditableBody($subject, $body_text, $eligible_for_title_strip, $collapse_repeated_prefixes = false)
     {
         $body_text = $this->normalizePlainText($body_text);
-        if (!$eligible_for_title_strip) {
-            return $body_text;
-        }
-
         $normalized_subject = $this->normalizeVisibleLine($subject);
         if ($normalized_subject === '') {
             return $body_text;
@@ -123,6 +119,10 @@ class ImapNotesContent
 
                 return implode("\n", $lines);
             }
+        }
+
+        if (!$eligible_for_title_strip) {
+            return $body_text;
         }
 
         array_splice($lines, $first_index, 1);

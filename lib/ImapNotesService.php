@@ -91,7 +91,7 @@ class ImapNotesService
             ? $state['logical_uuid']
             : ImapNotesMessage::uuidV4();
         if ($this->submittedBodyStartsWithTitle($title, $body) && $this->shouldNormalizeCompatibleBody($state, $conflict_state['current'] ?? null)) {
-            $body = $this->content->normalizeImportedEditableBody($title, $body, true, true);
+            $body = $this->content->normalizeImportedEditableBody($title, $body, false, true);
         }
         $storage_text = $this->content->composeStorageBodyText($title, $body);
         $html = $this->content->textToSafeHtml($storage_text);
