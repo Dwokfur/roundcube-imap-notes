@@ -123,6 +123,15 @@ Syntax-check the plugin files:
 find . -name '*.php' -print0 | xargs -0 -n1 php -l
 ```
 
+## Manual accessibility/UI verification checklist
+
+- [ ] Elastic light mode: New note, Title, Body, banners, selected notes, and rendered preview use theme-appropriate colors and readable contrast.
+- [ ] Elastic dark mode: New note, Title, Body, banners, selected notes, and rendered preview no longer show white browser-default surfaces.
+- [ ] Keyboard navigation: visible `:focus-visible` states appear on note links, New note, Save/Delete/Retry buttons, Title, and Body controls.
+- [ ] Screen-reader semantics: Title/Body labels are associated with their controls; the selected note exposes `aria-current`; conflict feedback is announced as an alert; read-only and cleanup-pending notices are polite status updates.
+- [ ] Delete flow: deleting a note shows the localized confirmation prompt before submitting.
+- [ ] Responsive layout: at 320px width and at 200% zoom, the sidebar button remains usable, action buttons wrap or stack cleanly, long folder/note text does not cause horizontal overflow, and rendered `pre`/`code` content wraps or scrolls within its panel.
+
 ## Manual Dovecot verification checklist
 
 In a real Roundcube + Dovecot environment, verify:

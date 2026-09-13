@@ -1,29 +1,80 @@
+.imap-notes-layout,
+.imap-notes-main {
+  --imap-notes-surface: var(--layout-content-background-color, var(--color-main-background, #fff));
+  --imap-notes-surface-raised: var(--layout-sidebar-background-color, var(--layout-content-background-color, #fff));
+  --imap-notes-text: var(--layout-content-text-color, var(--color-main-text, #333));
+  --imap-notes-muted: var(--layout-sidebar-text-secondary-color, #666);
+  --imap-notes-border: var(--color-border, #ddd);
+  --imap-notes-focus: var(--color-primary, #2c7be5);
+  --imap-notes-button-background: var(--button-background-color, var(--imap-notes-surface-raised));
+  --imap-notes-button-color: var(--button-text-color, var(--imap-notes-text));
+  --imap-notes-button-border: var(--button-border-color, var(--imap-notes-border));
+  --imap-notes-button-hover: var(--button-hover-background-color, var(--imap-notes-button-background));
+  --imap-notes-primary-background: var(--button-primary-background-color, var(--imap-notes-focus));
+  --imap-notes-primary-color: var(--button-primary-text-color, #fff);
+  --imap-notes-input-background: var(--input-background-color, var(--imap-notes-surface));
+  --imap-notes-input-color: var(--input-text-color, var(--imap-notes-text));
+  --imap-notes-input-border: var(--input-border-color, var(--imap-notes-border));
+  --imap-notes-placeholder: var(--input-placeholder-color, var(--imap-notes-muted));
+  --imap-notes-selected-background: var(--color-primary-light, color-mix(in srgb, var(--imap-notes-focus) 12%, var(--imap-notes-surface)));
+  --imap-notes-warning-background: var(--color-warning-background, color-mix(in srgb, #ffc107 16%, var(--imap-notes-surface)));
+  --imap-notes-warning-border: var(--color-warning-border, color-mix(in srgb, #ffc107 35%, var(--imap-notes-border)));
+  --imap-notes-info-background: var(--color-info-background, color-mix(in srgb, var(--imap-notes-focus) 10%, var(--imap-notes-surface)));
+  --imap-notes-info-border: var(--color-info-border, color-mix(in srgb, var(--imap-notes-focus) 25%, var(--imap-notes-border)));
+}
+
 .imap-notes-sidebar {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
   padding: 0.75rem;
+  min-width: 0;
+  color: var(--imap-notes-text);
 }
 
 .imap-notes-folder {
-  color: var(--layout-sidebar-text-secondary-color, #666);
+  color: var(--imap-notes-muted);
   font-size: 0.9rem;
-  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .imap-notes-sidebar .button.create,
+.imap-notes-editor .button,
 .imap-notes-editor button {
   appearance: none;
-  border: 1px solid var(--button-border-color, #c7c7c7);
-  background: var(--button-background-color, #f7f7f7);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  border: 1px solid var(--imap-notes-button-border);
+  background: var(--imap-notes-button-background);
+  color: var(--imap-notes-button-color);
   border-radius: 0.25rem;
   padding: 0.55rem 0.8rem;
   cursor: pointer;
+  text-decoration: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.imap-notes-sidebar .button.create:hover,
+.imap-notes-editor .button:hover,
+.imap-notes-editor button:hover:not(:disabled) {
+  background: var(--imap-notes-button-hover);
+}
+
+.imap-notes-editor button:disabled {
+  opacity: 0.65;
+  cursor: default;
 }
 
 .imap-notes-sidebar .button.create,
 .imap-notes-list a {
   display: block;
+}
+
+.imap-notes-sidebar .button.create {
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .imap-notes-list {
@@ -33,19 +84,23 @@
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  min-width: 0;
 }
 
 .imap-note-item a {
+  display: block;
   padding: 0.65rem 0.75rem;
-  border: 1px solid var(--color-border, #ddd);
+  border: 1px solid var(--imap-notes-border);
   border-radius: 0.35rem;
   text-decoration: none;
   color: inherit;
+  background: var(--imap-notes-surface-raised);
+  min-width: 0;
 }
 
 .imap-note-item.selected a {
-  border-color: var(--color-primary, #2c7be5);
-  background: rgba(44, 123, 229, 0.08);
+  border-color: var(--imap-notes-focus);
+  background: var(--imap-notes-selected-background);
 }
 
 .imap-note-item.cleanup-pending a {
@@ -55,6 +110,7 @@
 .imap-note-item .title,
 .imap-note-item .preview {
   display: block;
+  overflow-wrap: anywhere;
 }
 
 .imap-note-item .title {
@@ -63,7 +119,7 @@
 
 .imap-note-item .preview {
   margin-top: 0.35rem;
-  color: var(--layout-sidebar-text-secondary-color, #666);
+  color: var(--imap-notes-muted);
   font-size: 0.9rem;
 }
 
@@ -72,14 +128,19 @@
   flex-direction: column;
   gap: 1rem;
   padding: 1rem;
+  min-width: 0;
+  color: var(--imap-notes-text);
 }
 
+.imap-notes-editor .field-group,
 .imap-notes-editor .field {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
+  min-width: 0;
 }
 
+.imap-notes-editor .field-group.grow,
 .imap-notes-editor .field.grow,
 .imap-notes-editor textarea {
   min-height: 0;
@@ -90,15 +151,29 @@
 .imap-notes-editor textarea {
   width: 100%;
   box-sizing: border-box;
-  border: 1px solid var(--color-border, #ddd);
+  border: 1px solid var(--imap-notes-input-border);
   border-radius: 0.35rem;
   padding: 0.7rem;
   font: inherit;
+  color: var(--imap-notes-input-color);
+  background: var(--imap-notes-input-background);
 }
 
 .imap-notes-editor textarea {
   resize: vertical;
-  min-height: 18rem;
+  min-height: 16rem;
+  overflow-wrap: anywhere;
+}
+
+.imap-notes-editor input[type="text"]::placeholder,
+.imap-notes-editor textarea::placeholder {
+  color: var(--imap-notes-placeholder);
+}
+
+.imap-notes-editor input[readonly],
+.imap-notes-editor textarea[readonly] {
+  color: var(--imap-notes-input-color);
+  background: var(--imap-notes-input-background);
 }
 
 .imap-notes-editor .note-form {
@@ -106,6 +181,7 @@
   flex-direction: column;
   gap: 1rem;
   height: 100%;
+  min-width: 0;
 }
 
 .imap-notes-editor .actions,
@@ -116,11 +192,21 @@
   flex-wrap: wrap;
 }
 
+.imap-notes-editor .actions button,
+.imap-notes-editor .note-delete-form button,
+.imap-notes-editor .note-cleanup-form button {
+  max-width: 100%;
+}
+
 .imap-notes-rendered {
-  border: 1px solid var(--color-border, #ddd);
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--imap-notes-border);
   border-radius: 0.35rem;
   padding: 0.75rem;
-  background: rgba(0, 0, 0, 0.02);
+  background: var(--imap-notes-input-background);
+  color: var(--imap-notes-text);
 }
 
 .imap-notes-rendered .label {
@@ -128,30 +214,84 @@
   margin-bottom: 0.5rem;
 }
 
+.imap-notes-rendered pre,
+.imap-notes-rendered code {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.imap-notes-rendered pre {
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
 .imap-notes-editor .main-action {
-  background: var(--button-primary-background-color, #2c7be5);
-  color: var(--button-primary-text-color, #fff);
+  border-color: var(--imap-notes-primary-background);
+  background: var(--imap-notes-primary-background);
+  color: var(--imap-notes-primary-color);
+}
+
+.imap-notes-editor .main-action:hover:not(:disabled) {
+  background: var(--imap-notes-primary-background);
 }
 
 .imap-notes-banner {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--imap-notes-border);
   border-radius: 0.35rem;
   padding: 0.75rem 0.9rem;
+  color: var(--imap-notes-text);
 }
 
 .imap-notes-banner.warning {
-  background: rgba(255, 193, 7, 0.15);
+  background: var(--imap-notes-warning-background);
+  border-color: var(--imap-notes-warning-border);
 }
 
 .imap-notes-banner.info {
-  background: rgba(44, 123, 229, 0.08);
+  background: var(--imap-notes-info-background);
+  border-color: var(--imap-notes-info-border);
+}
+
+.imap-notes-list a:focus-visible,
+.imap-notes-sidebar .button.create:focus-visible,
+.imap-notes-editor .button:focus-visible,
+.imap-notes-editor button:focus-visible,
+.imap-notes-editor input[type="text"]:focus-visible,
+.imap-notes-editor textarea:focus-visible {
+  outline: 2px solid var(--imap-notes-focus);
+  outline-offset: 2px;
+}
+
+.imap-notes-editor input[type="text"]:focus-visible,
+.imap-notes-editor textarea:focus-visible {
+  border-color: var(--imap-notes-focus);
 }
 
 @media (max-width: 900px) {
+  .imap-notes-sidebar {
+    padding: 0.75rem 0.75rem 0;
+  }
+
   .imap-notes-editor {
     padding: 0.75rem;
   }
 
   .imap-notes-editor textarea {
-    min-height: 14rem;
+    min-height: 12rem;
+  }
+
+  .imap-notes-editor .actions,
+  .imap-notes-editor .note-delete-form,
+  .imap-notes-editor .note-cleanup-form {
+    width: 100%;
+  }
+
+  .imap-notes-editor .actions button,
+  .imap-notes-editor .note-delete-form button,
+  .imap-notes-editor .note-cleanup-form button {
+    width: 100%;
   }
 }
