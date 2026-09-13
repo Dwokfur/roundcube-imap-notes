@@ -284,6 +284,26 @@ class ImapNotesRoundcubeStorageTest extends TestCase
         $this->assertSame('Ez egy próba jegyzet', $note['body_text']);
     }
 
+    public function testAppleMarkedMessageStillStripsSingleTitlePrefixWithoutPluginMarker()
+    {
+        $storage = $this->newStorage();
+        rcube_message::$messages['Notes']['14'] = [
+            'headers' => [
+                'subject' => 'Próba',
+                'message-id' => '<legacy-single@example.invalid>',
+                'x-uniform-type-identifier' => 'com.apple.mail-note',
+            ],
+            'mimetype' => 'text/plain',
+            'body' => "Próba\n\nEz egy próba jegyzet",
+            'attachments' => [],
+        ];
+
+        $note = $storage->loadRevision('Notes', ImapNotesRoundcubeStorage::encodeNoteKey('Notes', '14'));
+
+        $this->assertSame('Próba', $note['title']);
+        $this->assertSame('Ez egy próba jegyzet', $note['body_text']);
+    }
+
     public function testAppleMarkedBodyIsNotStrippedWhenFirstLineDoesNotMatchSubject()
     {
         $storage = $this->newStorage();
