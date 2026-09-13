@@ -58,13 +58,6 @@ class ImapNotesService
         $title = $this->content->deriveTitle($input['title'] ?? '', $body, $fallback_title);
         $state = $this->extractState($input);
 
-        if ($this->submittedBodyStartsWithTitle($title, $body)) {
-            $existing_note = $this->loadExistingNoteForSave($folder, $state);
-            if ($this->shouldNormalizeCompatibleBody($existing_note)) {
-                $body = $this->content->normalizeImportedEditableBody($title, $body, true, true);
-            }
-        }
-
         if (!empty($state['uid']) && !empty($state['read_only'])) {
             return [
                 'status' => 'error',
@@ -97,6 +90,9 @@ class ImapNotesService
         $logical_uuid = !empty($state['logical_uuid']) && empty($decision['copy'])
             ? $state['logical_uuid']
             : ImapNotesMessage::uuidV4();
+        if ($this->submittedBodyStartsWithTitle($title, $body) && $this->shouldNormalizeCompatibleBody($conflict_state['current'] ?? null)) {
+            $body = $this->content->normalizeImportedEditableBody($title, $body, true, true);
+        }
         $storage_text = $this->content->composeStorageBodyText($title, $body);
         $html = $this->content->textToSafeHtml($storage_text);
         $created_at = $this->parseCreatedDate((string) ($state['created_at'] ?? ''));
@@ -292,15 +288,6 @@ class ImapNotesService
         } catch (Exception $e) {
             return null;
         }
-    }
-
-    private function loadExistingNoteForSave($folder, array $state)
-    {
-        if (empty($state['note_key'])) {
-            return null;
-        }
-
-        return $this->storage->loadRevision($folder, $state['note_key']);
     }
 
     private function shouldNormalizeCompatibleBody($note)

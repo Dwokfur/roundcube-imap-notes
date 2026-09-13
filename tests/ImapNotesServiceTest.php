@@ -211,8 +211,7 @@ class ImapNotesServiceTest extends TestCase
 
     public function testSaveRepairsCompatibleRepeatedTitlePrefixesBeforeWriteAndInFallbackSelectedNote()
     {
-        $storage = new ImapNotesServiceTestStorage(['status' => 'ok']);
-        $storage->existing_note = [
+        $existing_note = [
             'note_key' => 'current-note',
             'uid' => '4',
             'mailbox' => 'Notes',
@@ -222,6 +221,7 @@ class ImapNotesServiceTest extends TestCase
             'legacy_apple' => true,
             'read_only' => false,
         ];
+        $storage = new ImapNotesServiceTestStorage(['status' => 'ok', 'current' => $existing_note]);
         $storage->saved_note_exists = false;
         $service = new ImapNotesService(
             $storage,
@@ -269,7 +269,6 @@ class ImapNotesServiceTestStorage implements ImapNotesStorageInterface
     public $retire_called_with;
     public $delete_result = ['cleanup_pending' => false];
     public $retry_result = ['cleanup_pending' => false];
-    public $existing_note;
     public $saved_note_exists = true;
 
     public function __construct(array $conflict_state)
@@ -295,24 +294,6 @@ class ImapNotesServiceTestStorage implements ImapNotesStorageInterface
 
     public function loadRevision($folder, $note_key)
     {
-        if ($note_key === 'current-note' && $this->existing_note !== null) {
-            return array_merge([
-                'mailbox' => $folder,
-                'uidvalidity' => '22',
-                'logical_uuid' => '11111111-1111-4111-8111-111111111111',
-                'message_id' => '<current@example.invalid>',
-                'updated_at' => '2026-09-12T13:00:00Z',
-                'created_at' => 'Sat, 12 Sep 2026 13:00:00 +0000',
-                'preview' => 'Body',
-                'body_html' => '<html><body><p>Body</p></body></html>',
-                'fingerprint' => 'fp',
-                'read_only_reason' => '',
-                'cleanup_pending' => false,
-                'cleanup_pending_target_uid' => '',
-                'imported' => false,
-            ], $this->existing_note);
-        }
-
         if ($note_key === 'saved-note' && !$this->saved_note_exists) {
             return null;
         }
