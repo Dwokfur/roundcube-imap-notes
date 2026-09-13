@@ -10,7 +10,7 @@ This plugin implements an MVP Roundcube task named `imap_notes` that stores note
 $config['imap_notes_folder'] = 'Notes';
 ```
 
-- The configured mailbox name is resolved through Roundcube's namespace support.
+- The configured mailbox name is resolved through Roundcube's public namespace-aware folder transformation API (`mod_folder($configured, 'in')`) with an existing-folder fast path.
 - No automatic migration is attempted when the configured mailbox changes.
 
 ## Accepted note sources
@@ -63,20 +63,20 @@ Roundcube's message layer is responsible for runtime MIME transfer decoding and 
 
 Editor session state carries:
 
-- resolved mailbox
+- encoded `note_key`
 - UIDVALIDITY snapshot
-- UID
+- current UID snapshot
 - stable logical UUID if present
+- original `Message-ID` if present
 - `X-Roundcube-Note-Updated`
-- folder `HIGHESTMODSEQ` snapshot when available through Roundcube
 - normalized-content fingerprint
 
-Before save, v1 checks:
+Before save, v1 performs best-effort checks:
 
 1. UIDVALIDITY changes
 2. current UID existence
 3. stable UUID search when the original UID disappeared
-4. update-header and body-fingerprint comparison on the current revision
+4. `Message-ID`, logical UUID, update-header, and body-fingerprint comparison on the current revision
 
 Conflict UI actions:
 
@@ -86,22 +86,29 @@ Conflict UI actions:
 
 The safe default is “save mine as a copy”.
 
+This is not true conditional IMAP protection. v1 does not send per-message CONDSTORE/`UNCHANGEDSINCE`; folder `HIGHESTMODSEQ` is not treated as authoritative for mutation safety.
+
 ## Save semantics
 
 1. append new revision
 2. determine/confirm appended UID
-3. only then mark predecessor `\Deleted`
-4. use selective UID expunge only when `UIDPLUS` is available
-5. otherwise leave cleanup pending instead of risking a mailbox-wide expunge
+3. only then revalidate the predecessor revision by decoded `note_key`, configured-folder match, UIDVALIDITY, stable UUID, and `Message-ID`
+4. mark only that predecessor UID `\Deleted`
+5. use selective UID expunge only when `UIDPLUS` is available
+6. otherwise leave cleanup pending instead of risking a mailbox-wide expunge
 
 On uncertain save, users must reload before retrying.
 
 ## Delete semantics
 
-- prefer moving the active message to the configured/account Trash mailbox
+- decode and validate the submitted `note_key` before any destructive action
+- reject any note key that points outside the configured notes mailbox
+- reload the target UID from IMAP and require UIDVALIDITY plus `Message-ID`/logical-UUID state to still match
+- for notes with a stable logical UUID, require the target revision to still be the current active revision; stale deletes reload instead of deleting an older physical message
+- prefer moving the validated active message to the configured/account Trash mailbox
 - if Trash is unavailable, mark only that UID `\Deleted`
 - use selective UID expunge only when `UIDPLUS` is available
-- otherwise hide the note in the plugin and leave final cleanup deferred
+- otherwise hide the note in the plugin and leave final cleanup deferred through a structured per-folder cleanup record
 
 ## Security constraints
 
@@ -110,3 +117,4 @@ On uncertain save, users must reload before retrying.
 - no unsafe URI schemes
 - no attachments in v1
 - list rendering exposes previews only
+- malformed or untrusted logical UUID values must not be interpolated into raw IMAP `HEADER` searches

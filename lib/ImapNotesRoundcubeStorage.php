@@ -2,6 +2,9 @@
 
 class ImapNotesRoundcubeStorage implements ImapNotesStorageInterface
 {
+    private const SESSION_DEFERRED_CLEANUP = 'imap_notes_deferred_cleanup';
+    private const SESSION_LEGACY_HIDDEN_UIDS = 'imap_notes_hidden_uids';
+
     private $rcmail;
     private $content;
 
@@ -95,10 +98,12 @@ class ImapNotesRoundcubeStorage implements ImapNotesStorageInterface
             return ['status' => 'missing'];
         }
 
+        $same_logical_uuid = empty($state['logical_uuid']) || $state['logical_uuid'] === ($current['logical_uuid'] ?? '');
+        $same_message_id = empty($state['message_id']) || $state['message_id'] === ($current['message_id'] ?? '');
         $same_updated = empty($state['updated_at']) || $state['updated_at'] === ($current['updated_at'] ?? '');
         $same_fingerprint = empty($state['fingerprint']) || $state['fingerprint'] === ($current['fingerprint'] ?? '');
 
-        if ($same_updated && $same_fingerprint) {
+        if ($same_logical_uuid && $same_message_id && $same_updated && $same_fingerprint) {
             return ['status' => 'ok', 'current' => $current];
         }
 
@@ -137,6 +142,7 @@ class ImapNotesRoundcubeStorage implements ImapNotesStorageInterface
                 'note_key' => self::encodeNoteKey($folder, $uid, $message['logical_uuid']),
                 'uid' => $uid,
                 'logical_uuid' => $message['logical_uuid'],
+                'message_id' => $message['message_id'],
                 'updated_at' => $message['updated_at'],
                 'title' => $note_data['title'],
                 'fingerprint' => $note_data['fingerprint'],
@@ -147,9 +153,32 @@ class ImapNotesRoundcubeStorage implements ImapNotesStorageInterface
     public function retireRevision($folder, array $state, array $new_revision)
     {
         $storage = $this->rcmail->get_storage();
-        $uid = (string) $state['uid'];
+        $validated = $this->validateMutationTarget($folder, $state, [
+            'message' => 'The previous revision no longer matches the note you were editing. Reload before retrying.',
+            'current' => !empty($new_revision['logical_uuid']) ? $this->findCurrentByLogicalUuid($folder, $new_revision['logical_uuid']) : null,
+        ]);
+
+        if (($validated['status'] ?? '') !== 'ok') {
+            return [
+                'cleanup_pending' => false,
+                'error' => $validated['message'],
+            ];
+        }
+
+        $current = $validated['note'];
+        $uid = (string) $current['uid'];
         if ($uid === '' || $uid === (string) $new_revision['uid']) {
             return ['cleanup_pending' => false];
+        }
+
+        if (!empty($current['logical_uuid'])) {
+            $active = $this->findCurrentByLogicalUuid($folder, $current['logical_uuid']);
+            if ($active && (string) $active['uid'] !== (string) $new_revision['uid']) {
+                return [
+                    'cleanup_pending' => false,
+                    'error' => 'The previous revision changed on the server before it could be retired. Reload before retrying.',
+                ];
+            }
         }
 
         if (!$storage->set_flag($uid, 'DELETED', $folder)) {
@@ -162,36 +191,50 @@ class ImapNotesRoundcubeStorage implements ImapNotesStorageInterface
         if ($storage->get_capability('UIDPLUS')) {
             $pending = !$storage->expunge_message($uid, $folder, false);
             if ($pending) {
-                $this->hideDeferredUid($folder, $uid);
+                $this->hideDeferredCleanup($folder, $current);
             } else {
-                $this->clearHiddenDeferredUid($folder, $uid);
+                $this->clearDeferredCleanup($folder, $uid);
             }
 
-            return ['cleanup_pending' => $pending];
+            return ['cleanup_pending' => $pending, 'entry' => $this->deferredCleanupEntries($folder)[$uid] ?? null];
         }
 
-        $this->hideDeferredUid($folder, $uid);
+        $this->hideDeferredCleanup($folder, $current);
 
-        return ['cleanup_pending' => true];
+        return ['cleanup_pending' => true, 'entry' => $this->deferredCleanupEntries($folder)[$uid] ?? null];
     }
 
     public function deleteRevision($folder, array $state)
     {
         $storage = $this->rcmail->get_storage();
-        $uid = (string) $state['uid'];
-        $trash = (string) $this->rcmail->config->get('trash_mbox');
+        $validated = $this->validateMutationTarget($folder, $state, [
+            'message' => 'This note changed on the server before your delete completed. Reload before deleting.',
+            'require_current' => true,
+        ]);
 
+        if (($validated['status'] ?? '') !== 'ok') {
+            return $validated;
+        }
+
+        $current = $validated['note'];
+        $uid = (string) $current['uid'];
+        $trash = trim((string) $this->rcmail->config->get('trash_mbox'));
         if ($uid === '') {
-            return ['cleanup_pending' => false];
+            return ['status' => 'deleted', 'cleanup_pending' => false];
+        }
+
+        if ($trash !== '') {
+            $trash = $this->resolveFolderName($trash);
         }
 
         if ($trash && $storage->move_message($uid, $trash, $folder)) {
-            $this->clearHiddenDeferredUid($folder, $uid);
-            return ['cleanup_pending' => false];
+            $this->clearDeferredCleanup($folder, $uid);
+            return ['status' => 'deleted', 'cleanup_pending' => false];
         }
 
         if (!$storage->set_flag($uid, 'DELETED', $folder)) {
             return [
+                'status' => 'error',
                 'cleanup_pending' => false,
                 'error' => 'The note could not be deleted safely.',
             ];
@@ -200,46 +243,85 @@ class ImapNotesRoundcubeStorage implements ImapNotesStorageInterface
         if ($storage->get_capability('UIDPLUS')) {
             $pending = !$storage->expunge_message($uid, $folder, false);
             if ($pending) {
-                $this->hideDeferredUid($folder, $uid);
+                $this->hideDeferredCleanup($folder, $current);
             } else {
-                $this->clearHiddenDeferredUid($folder, $uid);
+                $this->clearDeferredCleanup($folder, $uid);
             }
 
-            return ['cleanup_pending' => $pending];
+            return [
+                'status' => $pending ? 'cleanup_pending' : 'deleted',
+                'cleanup_pending' => $pending,
+                'entry' => $this->deferredCleanupEntries($folder)[$uid] ?? null,
+            ];
         }
 
-        $this->hideDeferredUid($folder, $uid);
+        $this->hideDeferredCleanup($folder, $current);
 
-        return ['cleanup_pending' => true];
+        return [
+            'status' => 'cleanup_pending',
+            'cleanup_pending' => true,
+            'entry' => $this->deferredCleanupEntries($folder)[$uid] ?? null,
+        ];
     }
 
     public function retryCleanup($folder, array $state)
     {
         $storage = $this->rcmail->get_storage();
-        $uid = (string) ($state['cleanup_pending_target_uid'] ?? $state['uid'] ?? '');
-
-        if ($uid === '') {
-            return ['cleanup_pending' => false];
+        $entry = $this->selectDeferredCleanupEntry($folder, $state);
+        if (!$entry) {
+            return [
+                'status' => 'cleanup_pending',
+                'cleanup_pending' => true,
+                'message' => 'Deferred cleanup information is incomplete. Reload and review before retrying.',
+            ];
         }
 
+        $folder_data = $storage->folder_data($folder);
+        $uidvalidity = (string) (($folder_data['UIDVALIDITY'] ?? '') ?: '');
+        if ($entry['uidvalidity'] !== '' && $uidvalidity !== '' && $entry['uidvalidity'] !== $uidvalidity) {
+            $this->hideDeferredCleanup($folder, $entry);
+
+            return [
+                'status' => 'cleanup_pending',
+                'cleanup_pending' => true,
+                'message' => 'Deferred cleanup no longer matches the current mailbox state. Reload and review before retrying.',
+            ];
+        }
+
+        $uid = (string) $entry['uid'];
         if (!$storage->get_capability('UIDPLUS')) {
-            $this->hideDeferredUid($folder, $uid);
-            return ['cleanup_pending' => true];
+            $this->hideDeferredCleanup($folder, $entry);
+
+            return ['status' => 'cleanup_pending', 'cleanup_pending' => true];
+        }
+
+        $note = $this->buildNoteFromMessage($folder, $uid);
+        if (!$note || !$this->matchesDeferredCleanupEntry($note, $entry) || empty($note['plugin_managed'])) {
+            $this->hideDeferredCleanup($folder, $entry);
+
+            return [
+                'status' => 'cleanup_pending',
+                'cleanup_pending' => true,
+                'message' => 'Deferred cleanup no longer matches the original revision. Reload and review before retrying.',
+            ];
         }
 
         if (!$storage->set_flag($uid, 'DELETED', $folder)) {
-            $this->hideDeferredUid($folder, $uid);
-            return ['cleanup_pending' => true];
+            $this->hideDeferredCleanup($folder, $entry);
+            return ['status' => 'cleanup_pending', 'cleanup_pending' => true];
         }
 
         $pending = !$storage->expunge_message($uid, $folder, false);
         if ($pending) {
-            $this->hideDeferredUid($folder, $uid);
+            $this->hideDeferredCleanup($folder, $note);
         } else {
-            $this->clearHiddenDeferredUid($folder, $uid);
+            $this->clearDeferredCleanup($folder, $uid);
         }
 
-        return ['cleanup_pending' => $pending];
+        return [
+            'status' => $pending ? 'cleanup_pending' : 'cleaned',
+            'cleanup_pending' => $pending,
+        ];
     }
 
     public static function encodeNoteKey($folder, $uid, $logical_uuid = null)
@@ -273,7 +355,7 @@ class ImapNotesRoundcubeStorage implements ImapNotesStorageInterface
         $storage = $this->rcmail->get_storage();
         $message = new rcube_message($uid, $folder, true);
         if (empty($message->headers)) {
-            $this->clearHiddenDeferredUid($folder, $uid);
+            $this->clearDeferredCleanup($folder, $uid);
             return null;
         }
 
@@ -323,7 +405,6 @@ class ImapNotesRoundcubeStorage implements ImapNotesStorageInterface
             'mailbox' => $folder,
             'uid' => (string) $uid,
             'uidvalidity' => (string) (($folder_data['UIDVALIDITY'] ?? '') ?: ''),
-            'modseq' => (string) (($folder_data['HIGHESTMODSEQ'] ?? '') ?: ''),
             'logical_uuid' => $logical_uuid,
             'message_id' => (string) $message->headers->get('message-id', false),
             'updated_at' => $updated_at,
@@ -345,11 +426,16 @@ class ImapNotesRoundcubeStorage implements ImapNotesStorageInterface
 
     private function findCurrentByLogicalUuid($folder, $logical_uuid)
     {
-        if (!$logical_uuid) {
+        if (!$this->isStrictUuid($logical_uuid)) {
             return null;
         }
 
-        $search = 'HEADER X-Universally-Unique-Identifier ' . $this->imapQuotedString($logical_uuid) . ' UNDELETED';
+        $quoted = $this->imapQuotedString($logical_uuid);
+        if ($quoted === null) {
+            return null;
+        }
+
+        $search = 'HEADER X-Universally-Unique-Identifier ' . $quoted . ' UNDELETED';
         $result = $this->rcmail->get_storage()->search_once($folder, $search);
         $uids = method_exists($result, 'get') ? $result->get() : [];
         $hidden = $this->hiddenDeferredUids($folder);
@@ -381,10 +467,17 @@ class ImapNotesRoundcubeStorage implements ImapNotesStorageInterface
 
     private function lookupAppendedUid($folder, array $message)
     {
+        $message_id = $this->imapQuotedString($message['message_id']);
+        $updated_at = $this->imapQuotedString($message['updated_at']);
+        $logical_uuid = $this->imapQuotedString($message['logical_uuid']);
+        if ($message_id === null || $updated_at === null || $logical_uuid === null) {
+            return null;
+        }
+
         $criteria = [
-            'HEADER Message-ID ' . $this->imapQuotedString($message['message_id']),
-            'HEADER X-Roundcube-Note-Updated ' . $this->imapQuotedString($message['updated_at']),
-            'HEADER X-Universally-Unique-Identifier ' . $this->imapQuotedString($message['logical_uuid']),
+            'HEADER Message-ID ' . $message_id,
+            'HEADER X-Roundcube-Note-Updated ' . $updated_at,
+            'HEADER X-Universally-Unique-Identifier ' . $logical_uuid,
             'UNDELETED',
         ];
         $result = $this->rcmail->get_storage()->search_once($folder, implode(' ', $criteria));
@@ -404,14 +497,11 @@ class ImapNotesRoundcubeStorage implements ImapNotesStorageInterface
             return $configured;
         }
 
-        $personal = $storage->get_namespace('personal');
-        $prefix = '';
-        if (is_array($personal) && !empty($personal[0][0])) {
-            $prefix = $personal[0][0];
-        }
-
-        if ($prefix && strpos($configured, $prefix) !== 0) {
-            return $prefix . $configured;
+        if (method_exists($storage, 'mod_folder')) {
+            $resolved = $storage->mod_folder($configured, 'in');
+            if (is_string($resolved) && $resolved !== '') {
+                return $resolved;
+            }
         }
 
         return $configured;
@@ -419,50 +509,242 @@ class ImapNotesRoundcubeStorage implements ImapNotesStorageInterface
 
     private function imapQuotedString($value)
     {
+        if (preg_match('/[\x00-\x1F\x7F]/', (string) $value)) {
+            return null;
+        }
+
         return '"' . addcslashes((string) $value, '\\"') . '"';
     }
 
     private function hiddenDeferredUids($folder)
     {
-        $all = $_SESSION['imap_notes_hidden_uids'] ?? [];
-
-        if (empty($all[$folder]) || !is_array($all[$folder])) {
-            return [];
-        }
-
-        $uids = array_filter($all[$folder], function ($value) {
-            return is_scalar($value) && preg_match('/^[0-9]+$/', (string) $value);
-        });
-
-        return array_flip(array_map('strval', $uids));
+        return array_fill_keys(array_keys($this->deferredCleanupEntries($folder)), true);
     }
 
-    private function hideDeferredUid($folder, $uid)
+    private function hideDeferredCleanup($folder, array $note)
     {
-        if (empty($_SESSION['imap_notes_hidden_uids']) || !is_array($_SESSION['imap_notes_hidden_uids'])) {
-            $_SESSION['imap_notes_hidden_uids'] = [];
-        }
-
-        if (empty($_SESSION['imap_notes_hidden_uids'][$folder]) || !is_array($_SESSION['imap_notes_hidden_uids'][$folder])) {
-            $_SESSION['imap_notes_hidden_uids'][$folder] = [];
-        }
-
-        if (!in_array((string) $uid, $_SESSION['imap_notes_hidden_uids'][$folder], true)) {
-            $_SESSION['imap_notes_hidden_uids'][$folder][] = (string) $uid;
-        }
-    }
-
-    private function clearHiddenDeferredUid($folder, $uid)
-    {
-        if (empty($_SESSION['imap_notes_hidden_uids'][$folder]) || !is_array($_SESSION['imap_notes_hidden_uids'][$folder])) {
+        $entry = $this->normalizeDeferredCleanupEntry($note);
+        if (!$entry) {
             return;
         }
 
-        $_SESSION['imap_notes_hidden_uids'][$folder] = array_values(array_filter(
-            $_SESSION['imap_notes_hidden_uids'][$folder],
-            function ($value) use ($uid) {
-                return (string) $value !== (string) $uid;
+        if (empty($_SESSION[self::SESSION_DEFERRED_CLEANUP]) || !is_array($_SESSION[self::SESSION_DEFERRED_CLEANUP])) {
+            $_SESSION[self::SESSION_DEFERRED_CLEANUP] = [];
+        }
+
+        if (empty($_SESSION[self::SESSION_DEFERRED_CLEANUP][$folder]) || !is_array($_SESSION[self::SESSION_DEFERRED_CLEANUP][$folder])) {
+            $_SESSION[self::SESSION_DEFERRED_CLEANUP][$folder] = [];
+        }
+
+        $_SESSION[self::SESSION_DEFERRED_CLEANUP][$folder][$entry['uid']] = $entry;
+    }
+
+    private function clearDeferredCleanup($folder, $uid)
+    {
+        if (!empty($_SESSION[self::SESSION_DEFERRED_CLEANUP][$folder]) && is_array($_SESSION[self::SESSION_DEFERRED_CLEANUP][$folder])) {
+            unset($_SESSION[self::SESSION_DEFERRED_CLEANUP][$folder][(string) $uid]);
+        }
+
+        if (!empty($_SESSION[self::SESSION_LEGACY_HIDDEN_UIDS][$folder]) && is_array($_SESSION[self::SESSION_LEGACY_HIDDEN_UIDS][$folder])) {
+            $_SESSION[self::SESSION_LEGACY_HIDDEN_UIDS][$folder] = array_values(array_filter(
+                $_SESSION[self::SESSION_LEGACY_HIDDEN_UIDS][$folder],
+                function ($value) use ($uid) {
+                    return (string) $value !== (string) $uid;
+                }
+            ));
+        }
+    }
+
+    private function deferredCleanupEntries($folder)
+    {
+        $entries = [];
+        $current = $_SESSION[self::SESSION_DEFERRED_CLEANUP] ?? [];
+        if (!empty($current[$folder]) && is_array($current[$folder])) {
+            foreach ($current[$folder] as $uid => $entry) {
+                $normalized = $this->normalizeDeferredCleanupEntry($entry, $uid);
+                if ($normalized) {
+                    $entries[$normalized['uid']] = $normalized;
+                }
             }
-        ));
+        }
+
+        $legacy = $_SESSION[self::SESSION_LEGACY_HIDDEN_UIDS] ?? [];
+        if (!empty($legacy[$folder]) && is_array($legacy[$folder])) {
+            foreach ($legacy[$folder] as $value) {
+                $normalized = $this->normalizeDeferredCleanupEntry($value);
+                if ($normalized && empty($entries[$normalized['uid']])) {
+                    $entries[$normalized['uid']] = $normalized;
+                }
+            }
+        }
+
+        return $entries;
+    }
+
+    private function normalizeDeferredCleanupEntry($entry, $fallback_uid = null)
+    {
+        if (is_scalar($entry)) {
+            $entry = ['uid' => (string) $entry];
+        }
+
+        if (!is_array($entry)) {
+            return null;
+        }
+
+        $uid = (string) ($entry['uid'] ?? $fallback_uid ?? '');
+        if (!preg_match('/^[0-9]+$/', $uid)) {
+            return null;
+        }
+
+        return [
+            'uid' => $uid,
+            'uidvalidity' => (string) ($entry['uidvalidity'] ?? ''),
+            'logical_uuid' => trim((string) ($entry['logical_uuid'] ?? '')),
+            'message_id' => (string) ($entry['message_id'] ?? ''),
+        ];
+    }
+
+    private function selectDeferredCleanupEntry($folder, array $state)
+    {
+        $entries = $this->deferredCleanupEntries($folder);
+        if (empty($entries)) {
+            return null;
+        }
+
+        $current = $this->loadRevision($folder, $state['note_key'] ?? '');
+        $logical_uuid = (string) ($current['logical_uuid'] ?? '');
+        if ($logical_uuid !== '') {
+            $matching = [];
+            foreach ($entries as $entry) {
+                if ($entry['logical_uuid'] === $logical_uuid && $entry['uid'] !== (string) ($current['uid'] ?? '')) {
+                    $matching[] = $entry;
+                }
+            }
+
+            if (count($matching) === 1) {
+                return $matching[0];
+            }
+        }
+
+        $uid = (string) ($state['cleanup_pending_target_uid'] ?? $state['uid'] ?? '');
+
+        return $entries[$uid] ?? null;
+    }
+
+    private function matchesDeferredCleanupEntry(array $note, array $entry)
+    {
+        if ((string) $note['uid'] !== (string) $entry['uid']) {
+            return false;
+        }
+
+        if ($entry['message_id'] !== '' && $entry['message_id'] !== (string) ($note['message_id'] ?? '')) {
+            return false;
+        }
+
+        if ($entry['logical_uuid'] !== '' && $entry['logical_uuid'] !== (string) ($note['logical_uuid'] ?? '')) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private function validateMutationTarget($folder, array $state, array $options = [])
+    {
+        $message = $options['message'] ?? 'This note changed on the server. Reload before retrying.';
+        $note_key = self::decodeNoteKey($state['note_key'] ?? '');
+        if (empty($note_key['uid']) || !preg_match('/^[0-9]+$/', (string) $note_key['uid'])) {
+            return ['status' => 'conflict', 'message' => $message, 'current' => $options['current'] ?? null];
+        }
+
+        if (!empty($note_key['mailbox']) && $note_key['mailbox'] !== $folder) {
+            return ['status' => 'conflict', 'message' => $message, 'current' => $options['current'] ?? null];
+        }
+
+        $expected_uid = (string) $note_key['uid'];
+        if (!empty($state['uid']) && (string) $state['uid'] !== $expected_uid) {
+            return ['status' => 'conflict', 'message' => $message, 'current' => $options['current'] ?? null];
+        }
+
+        $storage = $this->rcmail->get_storage();
+        $folder_data = $storage->folder_data($folder);
+        $uidvalidity = (string) (($folder_data['UIDVALIDITY'] ?? '') ?: '');
+        if (!empty($state['uidvalidity']) && $uidvalidity !== '' && (string) $state['uidvalidity'] !== $uidvalidity) {
+            return [
+                'status' => 'conflict',
+                'message' => $message,
+                'current' => $this->currentRevisionFromState($folder, $state, $options['current'] ?? null),
+            ];
+        }
+
+        $note = $this->buildNoteFromMessage($folder, $expected_uid);
+        if (!$note) {
+            return [
+                'status' => 'conflict',
+                'message' => $message,
+                'current' => $this->currentRevisionFromState($folder, $state, $options['current'] ?? null),
+            ];
+        }
+
+        if (!$this->matchesExpectedRevisionState($note, $state, $note_key)) {
+            return [
+                'status' => 'conflict',
+                'message' => $message,
+                'current' => $this->currentRevisionFromState($folder, $state, $options['current'] ?? null),
+            ];
+        }
+
+        if (!empty($options['require_current']) && !empty($note['logical_uuid'])) {
+            $current = $this->findCurrentByLogicalUuid($folder, $note['logical_uuid']);
+            if ($current && (string) $current['uid'] !== (string) $note['uid']) {
+                return ['status' => 'conflict', 'message' => $message, 'current' => $current];
+            }
+        }
+
+        return ['status' => 'ok', 'note' => $note];
+    }
+
+    private function matchesExpectedRevisionState(array $note, array $state, array $note_key)
+    {
+        $expected = [
+            'uid' => $note_key['uid'] ?? '',
+            'logical_uuid' => $note_key['logical_uuid'] ?? '',
+            'uidvalidity' => $state['uidvalidity'] ?? '',
+            'message_id' => $state['message_id'] ?? '',
+            'updated_at' => $state['updated_at'] ?? '',
+            'fingerprint' => $state['fingerprint'] ?? '',
+        ];
+
+        foreach ($expected as $field => $value) {
+            if ($value === '') {
+                continue;
+            }
+
+            if ((string) $value !== (string) ($note[$field] ?? '')) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function currentRevisionFromState($folder, array $state, $fallback = null)
+    {
+        $logical_uuid = (string) ($state['logical_uuid'] ?? '');
+        if ($logical_uuid !== '') {
+            $current = $this->findCurrentByLogicalUuid($folder, $logical_uuid);
+            if ($current) {
+                return $current;
+            }
+        }
+
+        return $fallback;
+    }
+
+    private function isStrictUuid($value)
+    {
+        return is_string($value) && preg_match(
+            '/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i',
+            $value
+        );
     }
 }

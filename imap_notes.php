@@ -105,6 +105,9 @@ class imap_notes extends rcube_plugin
                 'notes' => $result['notes'],
                 'selected' => $result['selected'],
             ];
+            if (!empty($result['conflict'])) {
+                $this->view_data['conflict'] = $result['conflict'];
+            }
             $this->rc->output->command('display_message', $this->gettextForResult($result), $this->messageType($result['status']));
         } catch (Exception $e) {
             $this->view_data = $this->fallbackViewData();
@@ -203,7 +206,7 @@ class imap_notes extends rcube_plugin
 
         $out .= '<form class="note-form" method="post" action="' . $this->escape($save_url) . '">';
         $out .= $this->hidden('_token', $token);
-        foreach (['note_key', 'mailbox', 'uid', 'uidvalidity', 'modseq', 'logical_uuid', 'updated_at', 'fingerprint'] as $field) {
+        foreach (['note_key', 'mailbox', 'uid', 'uidvalidity', 'logical_uuid', 'message_id', 'updated_at', 'fingerprint'] as $field) {
             $out .= $this->hidden($field, $note[$field] ?? '');
         }
         $out .= $this->hidden('read_only', $read_only ? '1' : '0');
@@ -225,7 +228,7 @@ class imap_notes extends rcube_plugin
         if (!empty($note['uid']) && empty($note['read_only'])) {
             $out .= '<form class="note-delete-form" method="post" action="' . $this->escape($delete_url) . '">';
             $out .= $this->hidden('_token', $token);
-            foreach (['note_key', 'mailbox', 'uid', 'uidvalidity', 'logical_uuid', 'updated_at', 'fingerprint'] as $field) {
+            foreach (['note_key', 'mailbox', 'uid', 'uidvalidity', 'logical_uuid', 'message_id', 'updated_at', 'fingerprint'] as $field) {
                 $out .= $this->hidden($field, $note[$field] ?? '');
             }
             $out .= '<button type="submit" class="delete-button">' . $this->escape($this->gettext('delete')) . '</button>';
@@ -282,6 +285,10 @@ class imap_notes extends rcube_plugin
 
     private function gettextForResult(array $result)
     {
+        if (!empty($result['message']) && in_array($result['status'], ['error', 'conflict', 'cleanup_pending'], true)) {
+            return $result['message'];
+        }
+
         $map = [
             'saved' => 'saved',
             'saved_copy' => 'savedcopy',
