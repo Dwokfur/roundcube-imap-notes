@@ -284,6 +284,7 @@ class ImapNotesServiceTest extends TestCase
     public function testSaveKeepsSingleMatchingFirstLineWhenRepairingCompatibleBody()
     {
         $storage = new ImapNotesServiceTestStorage(['status' => 'missing']);
+        $storage->saved_note_exists = false;
         $service = new ImapNotesService(
             $storage,
             new ImapNotesContent(),
@@ -308,6 +309,7 @@ class ImapNotesServiceTest extends TestCase
 
         $this->assertSame('saved', $result['status']);
         $this->assertStringContainsString("<p>Próba</p>\n<p>Próba</p>\n<p>Ez egy próba jegyzet</p>", $storage->last_append['html']);
+        $this->assertSame("Próba\n\nEz egy próba jegyzet", $result['selected']['body_text']);
     }
 
     private function buildService(array $conflict_state)
