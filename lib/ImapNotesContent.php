@@ -64,20 +64,14 @@ class ImapNotesContent
         $previous = libxml_use_internal_errors(true);
 
         $dom = new DOMDocument('1.0', 'UTF-8');
-        $wrapped = '<!DOCTYPE html><html><body>' . $html . '</body></html>';
-        $dom->loadHTML($wrapped, LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING | LIBXML_COMPACT);
+        $dom->loadHTML($this->htmlForParsing($html), LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING | LIBXML_COMPACT);
 
-        $body = $dom->getElementsByTagName('body')->item(0);
+        $body = $this->extractBody($dom);
         if ($body) {
             $this->sanitizeChildren($body);
         }
 
-        $inner = '';
-        if ($body) {
-            foreach (iterator_to_array($body->childNodes) as $child) {
-                $inner .= $dom->saveHTML($child);
-            }
-        }
+        $inner = $body ? $this->serializeChildren($dom, $body) : '';
 
         libxml_clear_errors();
         libxml_use_internal_errors($previous);
@@ -200,6 +194,33 @@ class ImapNotesContent
     private function escapeHtml($text)
     {
         return htmlspecialchars($text, ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5, 'UTF-8');
+    }
+
+    private function htmlForParsing($html)
+    {
+        $prefix = '<?xml encoding="UTF-8">';
+
+        if (preg_match('/<\s*(?:!doctype|html|head|body)\b/i', $html)) {
+            return $prefix . $html;
+        }
+
+        return $prefix . '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>' . $html . '</body></html>';
+    }
+
+    private function extractBody(DOMDocument $dom)
+    {
+        return $dom->getElementsByTagName('body')->item(0);
+    }
+
+    private function serializeChildren(DOMDocument $dom, DOMNode $node)
+    {
+        $html = '';
+
+        foreach (iterator_to_array($node->childNodes) as $child) {
+            $html .= $dom->saveHTML($child);
+        }
+
+        return $html;
     }
 
     private function ensureUtf8($value)

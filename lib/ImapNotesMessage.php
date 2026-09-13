@@ -37,6 +37,10 @@ class ImapNotesMessage
         ];
     }
 
+    /**
+     * Test helper: returns parsed headers plus the raw transfer-encoded body bytes.
+     * Tests that need decoded content should decode the body explicitly from headers.
+     */
     public function parseRawMessage($raw)
     {
         $parts = preg_split("/\r?\n\r?\n/", $raw, 2);
