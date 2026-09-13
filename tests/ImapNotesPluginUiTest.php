@@ -295,7 +295,7 @@ class ImapNotesPluginUiTest extends TestCase
             return;
         }
 
-        $this->assertRegExp($pattern, $subject);
+        $this->assertThat($subject, new PHPUnit\Framework\Constraint\RegularExpression($pattern));
     }
 
     private function getPrivate($object, $property)
