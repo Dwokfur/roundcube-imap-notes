@@ -58,6 +58,7 @@ class imap_notes extends rcube_plugin
         $this->include_stylesheet($this->local_skin_path() . '/imap_notes_taskbar.css');
         if ($this->rc->task === 'imap_notes') {
             $this->include_stylesheet($this->local_skin_path() . '/imap_notes.css');
+            $this->include_script($this->local_skin_path() . '/imap_notes.js');
         }
 
         return $args;
@@ -143,16 +144,21 @@ class imap_notes extends rcube_plugin
         $out = '<div class="imap-notes-sidebar">';
         $out .= '<div class="imap-notes-folder">' . $this->escape($this->view_data['folder']) . '</div>';
         $out .= '<a class="button create" href="' . $this->escape($this->rc->url(['task' => 'imap_notes', 'action' => 'index'])) . '">' . $this->escape($this->gettext('newnote')) . '</a>';
-        $out .= '<ul class="listing imap-notes-list" role="list">';
+        $out .= '<ul class="listing imap-notes-list">';
 
         $selected_key = $this->view_data['selected']['note_key'] ?? '';
-        foreach ((array) $this->view_data['notes'] as $note) {
+        foreach ((array) $this->view_data['notes'] as $index => $note) {
             $classes = ['imap-note-item'];
+            $status_id = '';
+            $attributes = [];
             if ($note['note_key'] === $selected_key) {
                 $classes[] = 'selected';
+                $attributes[] = ' aria-current="page"';
             }
             if (!empty($note['cleanup_pending'])) {
                 $classes[] = 'cleanup-pending';
+                $status_id = $this->domId('imap-note-status', ($note['note_key'] ?? '') . '-' . $index);
+                $attributes[] = ' aria-describedby="' . $this->escape($status_id) . '"';
             }
 
             $out .= '<li class="' . implode(' ', $classes) . '">';
@@ -160,9 +166,12 @@ class imap_notes extends rcube_plugin
                 'task' => 'imap_notes',
                 'action' => 'index',
                 '_note' => $note['note_key'],
-            ])) . '">';
+            ])) . '" aria-label="' . $this->escape($note['title']) . '"' . implode('', $attributes) . '>';
             $out .= '<span class="title">' . $this->escape($note['title']) . '</span>';
             $out .= '<span class="preview">' . $this->escape($note['preview']) . '</span>';
+            if ($status_id !== '') {
+                $out .= '<span class="voice" id="' . $this->escape($status_id) . '">' . $this->escape($this->gettext('cleanuppendinglabel')) . '</span>';
+            }
             $out .= '</a>';
             $out .= '</li>';
         }
@@ -189,10 +198,13 @@ class imap_notes extends rcube_plugin
             $this->content->sanitizeHtml((string) ($note['body_html'] ?? ''))
         );
         $preview_id = 'imap-notes-rendered-preview';
+        $field_suffix = $this->domIdSuffix(($note['note_key'] ?? '') . '-' . ($note['uid'] ?? 'new'));
+        $title_id = 'imap-notes-title-' . $field_suffix;
+        $body_id = 'imap-notes-body-' . $field_suffix;
 
         $out = '<div class="imap-notes-editor">';
         if ($conflict) {
-            $out .= '<div class="imap-notes-banner warning">';
+            $out .= '<div class="imap-notes-banner warning" role="alert" aria-live="assertive" aria-atomic="true">';
             $out .= '<strong>' . $this->escape($this->gettext('conflicttitle')) . '</strong>';
             $out .= '<p>' . $this->escape($this->gettext('conflictmessage')) . '</p>';
             $out .= '<p class="remote-title">' . $this->escape($conflict['title']) . '</p>';
@@ -200,11 +212,11 @@ class imap_notes extends rcube_plugin
         }
 
         if ($read_only && !empty($note['read_only_reason'])) {
-            $out .= '<div class="imap-notes-banner warning">' . $this->escape($note['read_only_reason']) . '</div>';
+            $out .= '<div class="imap-notes-banner warning" role="status" aria-live="polite" aria-atomic="true">' . $this->escape($note['read_only_reason']) . '</div>';
         }
 
         if (!empty($note['cleanup_pending'])) {
-            $out .= '<div class="imap-notes-banner info">' . $this->escape($this->gettext('revisioncleanuppending')) . '</div>';
+            $out .= '<div class="imap-notes-banner info" role="status" aria-live="polite" aria-atomic="true">' . $this->escape($this->gettext('revisioncleanuppending')) . '</div>';
         }
 
         $out .= '<form class="note-form" method="post" action="' . $this->escape($save_url) . '">';
@@ -213,8 +225,8 @@ class imap_notes extends rcube_plugin
             $out .= $this->hidden($field, $note[$field] ?? '');
         }
         $out .= $this->hidden('read_only', $read_only ? '1' : '0');
-        $out .= '<label class="field"><span>' . $this->escape($this->gettext('title')) . '</span><input type="text" name="title" value="' . $title . '"' . ($read_only ? ' readonly="readonly"' : '') . ' /></label>';
-        $out .= '<label class="field grow"><span>' . $this->escape($this->gettext('body')) . '</span><textarea name="body" rows="18"' . ($read_only ? ' readonly="readonly"' : '') . '>' . $body . '</textarea></label>';
+        $out .= '<div class="field"><label for="' . $this->escape($title_id) . '">' . $this->escape($this->gettext('title')) . '</label><input id="' . $this->escape($title_id) . '" type="text" name="title" value="' . $title . '"' . ($read_only ? ' readonly="readonly"' : '') . ' /></div>';
+        $out .= '<div class="field grow"><label for="' . $this->escape($body_id) . '">' . $this->escape($this->gettext('body')) . '</label><textarea id="' . $this->escape($body_id) . '" name="body" rows="18"' . ($read_only ? ' readonly="readonly"' : '') . '>' . $body . '</textarea></div>';
         if ($read_only && $read_only_html !== '') {
             $out .= '<div class="imap-notes-rendered" role="region" aria-labelledby="' . $preview_id . '"><div class="label" id="' . $preview_id . '">' . $this->escape($this->gettext('renderedpreview')) . '</div>' . $read_only_html . '</div>';
         }
@@ -229,7 +241,7 @@ class imap_notes extends rcube_plugin
         $out .= '</div></form>';
 
         if (!empty($note['uid']) && empty($note['read_only'])) {
-            $out .= '<form class="note-delete-form" method="post" action="' . $this->escape($delete_url) . '">';
+            $out .= '<form class="note-delete-form" method="post" action="' . $this->escape($delete_url) . '" data-confirm="' . $this->escape($this->gettext('deleteconfirm')) . '">';
             $out .= $this->hidden('_token', $token);
             foreach (['note_key', 'mailbox', 'uid', 'uidvalidity', 'logical_uuid', 'message_id', 'updated_at', 'created_at', 'fingerprint'] as $field) {
                 $out .= $this->hidden($field, $note[$field] ?? '');
@@ -242,7 +254,7 @@ class imap_notes extends rcube_plugin
             $out .= '<form class="note-cleanup-form" method="post" action="' . $this->escape($cleanup_url) . '">';
             $out .= $this->hidden('_token', $token);
             $out .= $this->hidden('note_key', $note['note_key'] ?? '');
-            $out .= $this->hidden('uid', $note['cleanup_pending_target_uid'] ?: ($note['uid'] ?? ''));
+            $out .= $this->hidden('uid', !empty($note['cleanup_pending_target_uid']) ? $note['cleanup_pending_target_uid'] : ($note['uid'] ?? ''));
             $out .= $this->hidden('cleanup_pending_target_uid', $note['cleanup_pending_target_uid'] ?? '');
             $out .= '<button type="submit">' . $this->escape($this->gettext('retrycleanup')) . '</button>';
             $out .= '</form>';
@@ -271,6 +283,19 @@ class imap_notes extends rcube_plugin
     private function escape($value)
     {
         return rcube::Q((string) $value);
+    }
+
+    private function domId($prefix, $value)
+    {
+        return $prefix . '-' . $this->domIdSuffix($value);
+    }
+
+    private function domIdSuffix($value)
+    {
+        $value = preg_replace('/[^a-z0-9]+/i', '-', (string) $value);
+        $value = trim((string) $value, '-');
+
+        return $value !== '' ? strtolower($value) : 'item';
     }
 
     private function messageType($status)
