@@ -163,6 +163,8 @@ class ImapNotesPluginUiTest extends TestCase
         $this->assertStringContainsString('role="alert"', $html);
         $this->assertStringContainsString('role="status"', $html);
         $this->assertStringContainsString('data-confirm="Delete this note?"', $html);
+        $this->assertStringContainsString('<form class="note-delete-form" method="post"', $html);
+        $this->assertStringContainsString('action="?task=imap_notes&amp;amp;action=delete"', $html);
         $this->assertStringContainsString('aria-describedby="imap-notes-delete-confirm-note-1-4"', $html);
         $this->assertStringContainsString('<span class="voice" id="imap-notes-delete-confirm-note-1-4">Delete this note?</span>', $html);
     }
