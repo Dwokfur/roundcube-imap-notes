@@ -368,6 +368,7 @@ class ImapNotesRoundcubeStorage implements ImapNotesStorageInterface
         $legacy_apple = strtolower((string) $message->headers->get('x-uniform-type-identifier', false)) === 'com.apple.mail-note';
         $logical_uuid = trim((string) $message->headers->get('x-universally-unique-identifier', false));
         $updated_at = trim((string) $message->headers->get('x-roundcube-note-updated', false));
+        $created_at = trim((string) $message->headers->get('x-mail-created-date', false));
         $body_text = '';
         $body_html = '';
         $read_only = false;
@@ -398,7 +399,16 @@ class ImapNotesRoundcubeStorage implements ImapNotesStorageInterface
         }
 
         $folder_data = $storage->folder_data($folder);
-        $title = $this->content->deriveTitle((string) $message->headers->get('subject'), $body_text);
+        $subject = (string) $message->headers->get('subject');
+        $title = $this->content->deriveTitle($subject, $body_text);
+        $body_text = $this->content->normalizeImportedEditableBody(
+            $title,
+            $body_text,
+            $plugin_managed || $legacy_apple
+        );
+        if ($created_at === '') {
+            $created_at = (string) ($message->headers->internaldate ?? '');
+        }
 
         return [
             'note_key' => self::encodeNoteKey($folder, $uid, $logical_uuid),
@@ -408,6 +418,7 @@ class ImapNotesRoundcubeStorage implements ImapNotesStorageInterface
             'logical_uuid' => $logical_uuid,
             'message_id' => (string) $message->headers->get('message-id', false),
             'updated_at' => $updated_at,
+            'created_at' => $created_at,
             'internal_date' => (string) ($message->headers->internaldate ?? ''),
             'title' => $title,
             'preview' => $this->content->previewText($body_text),

@@ -2,16 +2,20 @@
 
 class ImapNotesMessage
 {
-    public function createRevision($logical_uuid, $subject, $html, DateTimeImmutable $updated = null)
+    public function createRevision($logical_uuid, $subject, $html, $from, DateTimeImmutable $created = null, DateTimeImmutable $updated = null)
     {
         $updated = $updated ?: new DateTimeImmutable('now', new DateTimeZone('UTC'));
         $updated = $updated->setTimezone(new DateTimeZone('UTC'));
+        $created = $created ?: $updated;
+        $created = $created->setTimezone(new DateTimeZone('UTC'));
         $revision_uuid = self::uuidV4();
         $message_id = '<' . $revision_uuid . '@roundcube-imap-notes.invalid>';
         $date = $updated->format('D, d M Y H:i:s O');
+        $created_date = $created->format('D, d M Y H:i:s O');
         $updated_header = $updated->format('Y-m-d\TH:i:s\Z');
 
         $headers = [
+            'From: ' . $from,
             'Date: ' . $date,
             'Message-ID: ' . $message_id,
             'Subject: ' . mb_encode_mimeheader($subject, 'UTF-8', 'Q', "\r\n"),
@@ -20,6 +24,7 @@ class ImapNotesMessage
             'Content-Transfer-Encoding: quoted-printable',
             'X-Uniform-Type-Identifier: com.apple.mail-note',
             'X-Universally-Unique-Identifier: ' . $logical_uuid,
+            'X-Mail-Created-Date: ' . $created_date,
             'X-Roundcube-Note-Version: 1',
             'X-Roundcube-Note-Updated: ' . $updated_header,
         ];
@@ -30,7 +35,9 @@ class ImapNotesMessage
             'logical_uuid' => $logical_uuid,
             'message_id' => $message_id,
             'subject' => $subject,
+            'from' => $from,
             'updated_at' => $updated_header,
+            'created_at' => $created_date,
             'date' => $date,
             'html' => $html,
             'raw' => $raw,

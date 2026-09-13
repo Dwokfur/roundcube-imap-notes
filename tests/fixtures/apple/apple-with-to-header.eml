@@ -1,0 +1,12 @@
+From: Legacy User <legacy@example.test>
+To: somebody@example.test
+Date: Sat, 12 Sep 2026 13:25:00 +0000
+Message-ID: <legacy-to@example.test>
+Subject: To Header Note
+MIME-Version: 1.0
+Content-Type: text/html; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+X-Uniform-Type-Identifier: com.apple.mail-note
+X-Universally-Unique-Identifier: 55555555-5555-4555-8555-555555555555
+
+<html><body><div>To Header Note</div><div><br></div><div>Imported despite To.</div></body></html>

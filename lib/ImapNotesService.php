@@ -7,19 +7,22 @@ class ImapNotesService
     private $message_factory;
     private $resolver;
     private $conflicts;
+    private $identity_resolver;
 
     public function __construct(
         ImapNotesStorageInterface $storage,
         ImapNotesContent $content,
         ImapNotesMessage $message_factory,
         ImapNotesRevisionResolver $resolver,
-        ImapNotesConflictResolver $conflicts
+        ImapNotesConflictResolver $conflicts,
+        ImapNotesIdentityResolverInterface $identity_resolver
     ) {
         $this->storage = $storage;
         $this->content = $content;
         $this->message_factory = $message_factory;
         $this->resolver = $resolver;
         $this->conflicts = $conflicts;
+        $this->identity_resolver = $identity_resolver;
     }
 
     public function view($selected_key = null)
@@ -87,8 +90,11 @@ class ImapNotesService
         $logical_uuid = !empty($state['logical_uuid']) && empty($decision['copy'])
             ? $state['logical_uuid']
             : ImapNotesMessage::uuidV4();
-        $html = $this->content->textToSafeHtml($body);
-        $message = $this->message_factory->createRevision($logical_uuid, $title, $html);
+        $storage_text = $this->content->composeStorageBodyText($title, $body);
+        $html = $this->content->textToSafeHtml($storage_text);
+        $created_at = $this->parseCreatedDate((string) ($state['created_at'] ?? ''));
+        $from = $this->identity_resolver->resolveFromHeader();
+        $message = $this->message_factory->createRevision($logical_uuid, $title, $html, $from, $created_at);
         $append = $this->storage->appendRevision($folder, $message, [
             'title' => $title,
             'body_text' => $body,
@@ -236,6 +242,7 @@ class ImapNotesService
             'logical_uuid' => '',
             'message_id' => '',
             'updated_at' => '',
+            'created_at' => '',
             'title' => '',
             'preview' => '',
             'body_text' => '',
@@ -261,8 +268,22 @@ class ImapNotesService
             'logical_uuid' => $input['logical_uuid'] ?? '',
             'message_id' => $input['message_id'] ?? '',
             'updated_at' => $input['updated_at'] ?? '',
+            'created_at' => $input['created_at'] ?? '',
             'fingerprint' => $input['fingerprint'] ?? '',
             'read_only' => !empty($input['read_only']),
         ];
+    }
+
+    private function parseCreatedDate($created_at)
+    {
+        if ($created_at === '') {
+            return null;
+        }
+
+        try {
+            return new DateTimeImmutable($created_at);
+        } catch (Exception $e) {
+            return null;
+        }
     }
 }

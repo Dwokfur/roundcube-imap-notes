@@ -23,3 +23,4 @@ $labels['deletecleanuppending'] = 'The note was hidden, but final deletion clean
 $labels['cleanupdone'] = 'Deferred cleanup completed.';
 $labels['reloaded'] = 'Reloaded the current remote revision.';
 $labels['foldererror'] = 'Unable to access or create the configured notes mailbox "%s".';
+$labels['identityerror'] = 'Configure a valid default Roundcube identity email address before saving notes.';

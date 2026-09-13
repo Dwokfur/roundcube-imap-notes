@@ -90,4 +90,43 @@ class ImapNotesContentTest extends TestCase
         $this->assertSame('café', $content->normalizePlainText($latin1));
         $this->assertSame($valid_utf8, $content->normalizePlainText($valid_utf8));
     }
+
+    public function testComposeStorageBodyTextDuplicatesTitleForAppleCompatibility()
+    {
+        $content = new ImapNotesContent();
+
+        $this->assertSame(
+            "Próba\n\nEz egy próba jegyzet",
+            $content->composeStorageBodyText('Próba', 'Ez egy próba jegyzet')
+        );
+    }
+
+    public function testComposeStorageBodyTextKeepsTitleOnlyWithoutExtraBlankBodyLine()
+    {
+        $content = new ImapNotesContent();
+
+        $this->assertSame('Próba', $content->composeStorageBodyText('Próba', ''));
+    }
+
+    public function testNormalizeImportedEditableBodyStripsDuplicatedTitleForCompatibleMessages()
+    {
+        $content = new ImapNotesContent();
+        $body = "Próba\n\nEz egy próba jegyzet";
+
+        $this->assertSame(
+            'Ez egy próba jegyzet',
+            $content->normalizeImportedEditableBody('Próba', $body, true)
+        );
+    }
+
+    public function testNormalizeImportedEditableBodyKeepsMismatchUntouched()
+    {
+        $content = new ImapNotesContent();
+        $body = "Első sor\n\nTovábbi tartalom";
+
+        $this->assertSame(
+            $body,
+            $content->normalizeImportedEditableBody('Más cím', $body, true)
+        );
+    }
 }

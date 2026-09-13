@@ -224,6 +224,25 @@ class ImapNotesRoundcubeStorageTest extends TestCase
         $this->assertSame([['INBOX/Notes', true]], $this->fakeStorage($storage)->create_folder_calls);
     }
 
+    public function testAppleMessageWithoutSubjectUsesFirstLineAsTitleAndStripsItFromEditableBody()
+    {
+        $storage = $this->newStorage();
+        rcube_message::$messages['Notes']['9'] = [
+            'headers' => [
+                'message-id' => '<nosubject@example.invalid>',
+                'x-uniform-type-identifier' => 'com.apple.mail-note',
+            ],
+            'mimetype' => 'text/plain',
+            'body' => "First line\n\nSecond line",
+            'attachments' => [],
+        ];
+
+        $note = $storage->loadRevision('Notes', ImapNotesRoundcubeStorage::encodeNoteKey('Notes', '9'));
+
+        $this->assertSame('First line', $note['title']);
+        $this->assertSame('Second line', $note['body_text']);
+    }
+
     private function newStorage(array $options = [])
     {
         $fake_storage = new ImapNotesRoundcubeStorageTestFakeStorage($options);

@@ -5,8 +5,10 @@ require_once __DIR__ . '/lib/ImapNotesMessage.php';
 require_once __DIR__ . '/lib/ImapNotesRevisionResolver.php';
 require_once __DIR__ . '/lib/ImapNotesConflictResolver.php';
 require_once __DIR__ . '/lib/ImapNotesStorageInterface.php';
+require_once __DIR__ . '/lib/ImapNotesIdentityResolverInterface.php';
 require_once __DIR__ . '/lib/ImapNotesService.php';
 require_once __DIR__ . '/lib/ImapNotesRoundcubeStorage.php';
+require_once __DIR__ . '/lib/ImapNotesIdentityResolver.php';
 
 class imap_notes extends rcube_plugin
 {
@@ -26,7 +28,8 @@ class imap_notes extends rcube_plugin
             $this->content,
             new ImapNotesMessage(),
             new ImapNotesRevisionResolver(),
-            new ImapNotesConflictResolver()
+            new ImapNotesConflictResolver(),
+            new ImapNotesIdentityResolver($this->rc)
         );
 
         $this->load_config();
@@ -206,7 +209,7 @@ class imap_notes extends rcube_plugin
 
         $out .= '<form class="note-form" method="post" action="' . $this->escape($save_url) . '">';
         $out .= $this->hidden('_token', $token);
-        foreach (['note_key', 'mailbox', 'uid', 'uidvalidity', 'logical_uuid', 'message_id', 'updated_at', 'fingerprint'] as $field) {
+        foreach (['note_key', 'mailbox', 'uid', 'uidvalidity', 'logical_uuid', 'message_id', 'updated_at', 'created_at', 'fingerprint'] as $field) {
             $out .= $this->hidden($field, $note[$field] ?? '');
         }
         $out .= $this->hidden('read_only', $read_only ? '1' : '0');
@@ -228,7 +231,7 @@ class imap_notes extends rcube_plugin
         if (!empty($note['uid']) && empty($note['read_only'])) {
             $out .= '<form class="note-delete-form" method="post" action="' . $this->escape($delete_url) . '">';
             $out .= $this->hidden('_token', $token);
-            foreach (['note_key', 'mailbox', 'uid', 'uidvalidity', 'logical_uuid', 'message_id', 'updated_at', 'fingerprint'] as $field) {
+            foreach (['note_key', 'mailbox', 'uid', 'uidvalidity', 'logical_uuid', 'message_id', 'updated_at', 'created_at', 'fingerprint'] as $field) {
                 $out .= $this->hidden($field, $note[$field] ?? '');
             }
             $out .= '<button type="submit" class="delete-button">' . $this->escape($this->gettext('delete')) . '</button>';
@@ -313,6 +316,9 @@ class imap_notes extends rcube_plugin
     {
         if (strpos($message, 'configured notes mailbox') !== false) {
             return sprintf($this->gettext('foldererror'), $this->rc->config->get('imap_notes_folder', 'Notes'));
+        }
+        if (strpos($message, 'valid default identity') !== false) {
+            return $this->gettext('identityerror');
         }
 
         return $message;
