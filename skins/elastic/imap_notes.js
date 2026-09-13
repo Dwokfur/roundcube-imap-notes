@@ -8,13 +8,17 @@
       return;
     }
 
+    deleteStepField = form.querySelector('input[name="delete_step"]');
+    if (deleteStepField && deleteStepField.value === 'confirm') {
+      return;
+    }
+
     message = form.getAttribute('data-confirm');
     if (message && !window.confirm(message)) {
       event.preventDefault();
       return;
     }
 
-    deleteStepField = form.querySelector('input[name="delete_step"]');
     if (deleteStepField) {
       deleteStepField.value = 'confirm';
     }
