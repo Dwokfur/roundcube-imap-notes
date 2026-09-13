@@ -103,6 +103,14 @@ class imap_notes extends rcube_plugin
     public function action_delete()
     {
         try {
+            if (rcube_utils::get_input_string('confirm_delete', rcube_utils::INPUT_GPC) !== '1') {
+                $this->view_data = $this->service->view(rcube_utils::get_input_string('note_key', rcube_utils::INPUT_GPC));
+                $this->view_data['confirm_delete'] = true;
+                $this->renderIndex();
+
+                return;
+            }
+
             $result = $this->service->delete($_POST);
             $this->view_data = [
                 'folder' => $result['folder'],
@@ -201,6 +209,12 @@ class imap_notes extends rcube_plugin
         $field_suffix = $this->domIdSuffix(($note['note_key'] ?? '') . '-' . ($note['uid'] ?? 'new'));
         $title_id = 'imap-notes-title-' . $field_suffix;
         $body_id = 'imap-notes-body-' . $field_suffix;
+        $confirm_delete = !empty($this->view_data['confirm_delete']);
+        $cancel_delete_url = $this->rc->url([
+            'task' => 'imap_notes',
+            'action' => 'index',
+            '_note' => $note['note_key'] ?? '',
+        ]);
 
         $out = '<div class="imap-notes-editor">';
         if ($conflict) {
@@ -217,6 +231,10 @@ class imap_notes extends rcube_plugin
 
         if (!empty($note['cleanup_pending'])) {
             $out .= '<div class="imap-notes-banner info" role="status" aria-live="polite" aria-atomic="true">' . $this->escape($this->gettext('revisioncleanuppending')) . '</div>';
+        }
+
+        if ($confirm_delete) {
+            $out .= '<div class="imap-notes-banner warning" role="alert" aria-live="assertive" aria-atomic="true">' . $this->escape($this->gettext('deleteconfirm')) . '</div>';
         }
 
         $out .= '<form class="note-form" method="post" action="' . $this->escape($save_url) . '">';
@@ -247,8 +265,14 @@ class imap_notes extends rcube_plugin
             foreach (['note_key', 'mailbox', 'uid', 'uidvalidity', 'logical_uuid', 'message_id', 'updated_at', 'created_at', 'fingerprint'] as $field) {
                 $out .= $this->hidden($field, $note[$field] ?? '');
             }
-            $out .= '<span class="voice" id="' . $this->escape($delete_confirm_id) . '">' . $this->escape($this->gettext('deleteconfirm')) . '</span>';
-            $out .= '<button type="submit" class="delete-button" aria-describedby="' . $this->escape($delete_confirm_id) . '">' . $this->escape($this->gettext('delete')) . '</button>';
+            if ($confirm_delete) {
+                $out .= $this->hidden('confirm_delete', '1');
+                $out .= '<button type="submit" class="delete-button">' . $this->escape($this->gettext('confirmdelete')) . '</button>';
+                $out .= '<a class="button" href="' . $this->escape($cancel_delete_url) . '">' . $this->escape($this->gettext('canceldelete')) . '</a>';
+            } else {
+                $out .= '<span class="voice" id="' . $this->escape($delete_confirm_id) . '">' . $this->escape($this->gettext('deleteconfirm')) . '</span>';
+                $out .= '<button type="submit" class="delete-button" aria-describedby="' . $this->escape($delete_confirm_id) . '">' . $this->escape($this->gettext('delete')) . '</button>';
+            }
             $out .= '</form>';
         }
 

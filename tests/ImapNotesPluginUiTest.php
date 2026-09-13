@@ -73,6 +73,18 @@ if (!class_exists('rcmail')) {
     }
 }
 
+if (!class_exists('rcube_utils')) {
+    class rcube_utils
+    {
+        const INPUT_GPC = 0;
+
+        public static function get_input_string($name, $source)
+        {
+            return isset($_POST[$name]) ? (string) $_POST[$name] : '';
+        }
+    }
+}
+
 require_once __DIR__ . '/../imap_notes.php';
 
 class ImapNotesPluginUiTest extends TestCase
@@ -89,8 +101,11 @@ class ImapNotesPluginUiTest extends TestCase
             'revisioncleanuppending' => 'Cleanup pending banner',
             'cleanuppendinglabel' => 'Cleanup pending.',
             'delete' => 'Delete',
+            'confirmdelete' => 'Confirm delete',
+            'canceldelete' => 'Cancel',
             'deleteconfirm' => 'Delete this note?',
         ];
+        $_POST = [];
     }
 
     public function testStartupIncludesElasticScriptForDeleteConfirmation()
@@ -196,6 +211,45 @@ class ImapNotesPluginUiTest extends TestCase
         $this->assertRegExp('/<div class="field-group grow"><label class="field" for="imap-notes-body-readonly-7"><span>Note<\\/span><\\/label>/', $html);
     }
 
+    public function testDeleteActionWithoutConfirmedFlagShowsServerSideConfirmationStep()
+    {
+        $plugin = new imap_notes();
+        $rc = new ImapNotesPluginUiTestFakeRcmail();
+        $service = new ImapNotesPluginUiTestFakeService([
+            'folder' => 'Notes',
+            'notes' => [],
+            'selected' => [
+                'note_key' => 'note-1',
+                'uid' => '4',
+                'mailbox' => 'Notes',
+                'title' => 'My title',
+                'body_text' => 'Body text',
+                'body_html' => '<html><body><p>Body text</p></body></html>',
+                'cleanup_pending' => false,
+                'read_only' => false,
+            ],
+        ]);
+
+        $this->setPrivate($plugin, 'rc', $rc);
+        $this->setPrivate($plugin, 'content', new ImapNotesContent());
+        $this->setPrivate($plugin, 'service', $service);
+
+        $_POST = ['note_key' => 'note-1'];
+        $plugin->action_delete();
+
+        $view_data = $this->getPrivate($plugin, 'view_data');
+        $html = $plugin->notes_editor([]);
+
+        $this->assertSame(['note-1'], $service->view_calls);
+        $this->assertSame(0, $service->delete_calls);
+        $this->assertTrue($view_data['confirm_delete']);
+        $this->assertSame('imap_notes.notes', $rc->output->sent_template);
+        $this->assertStringContainsString('Delete this note?', $html);
+        $this->assertStringContainsString('name="confirm_delete" value="1"', $html);
+        $this->assertStringContainsString('>Confirm delete</button>', $html);
+        $this->assertStringContainsString('>Cancel</a>', $html);
+    }
+
     private function newPluginWithViewData(array $view_data)
     {
         $plugin = new imap_notes();
@@ -212,6 +266,14 @@ class ImapNotesPluginUiTest extends TestCase
         $reflection->setAccessible(true);
         $reflection->setValue($object, $value);
     }
+
+    private function getPrivate($object, $property)
+    {
+        $reflection = new ReflectionProperty($object, $property);
+        $reflection->setAccessible(true);
+
+        return $reflection->getValue($object);
+    }
 }
 
 class ImapNotesPluginUiTestFakeRcmail
@@ -221,7 +283,7 @@ class ImapNotesPluginUiTestFakeRcmail
 
     public function __construct()
     {
-        $this->output = (object) ['framed' => false];
+        $this->output = new ImapNotesPluginUiTestFakeOutput();
     }
 
     public function url(array $params)
@@ -232,5 +294,65 @@ class ImapNotesPluginUiTestFakeRcmail
     public function get_request_token()
     {
         return 'request-token';
+    }
+}
+
+class ImapNotesPluginUiTestFakeOutput
+{
+    public $framed = false;
+    public $title = null;
+    public $handlers = [];
+    public $sent_template = null;
+    public $commands = [];
+
+    public function command($name, $message, $type)
+    {
+        $this->commands[] = [$name, $message, $type];
+    }
+
+    public function set_pagetitle($title)
+    {
+        $this->title = $title;
+    }
+
+    public function add_handlers(array $handlers)
+    {
+        $this->handlers = $handlers;
+    }
+
+    public function send($template)
+    {
+        $this->sent_template = $template;
+    }
+}
+
+class ImapNotesPluginUiTestFakeService
+{
+    public $view_calls = [];
+    public $delete_calls = 0;
+    private $view_result;
+
+    public function __construct(array $view_result)
+    {
+        $this->view_result = $view_result;
+    }
+
+    public function view($note_key = null)
+    {
+        $this->view_calls[] = $note_key;
+
+        return $this->view_result;
+    }
+
+    public function delete(array $post)
+    {
+        $this->delete_calls++;
+
+        return [];
+    }
+
+    public function blankNote($folder)
+    {
+        return [];
     }
 }

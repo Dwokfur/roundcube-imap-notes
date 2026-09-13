@@ -39,6 +39,7 @@
 }
 
 .imap-notes-sidebar .button.create,
+.imap-notes-editor .button,
 .imap-notes-editor button {
   appearance: none;
   display: inline-flex;
@@ -56,6 +57,7 @@
 }
 
 .imap-notes-sidebar .button.create:hover,
+.imap-notes-editor .button:hover,
 .imap-notes-editor button:hover:not(:disabled) {
   background: var(--imap-notes-button-hover);
 }
@@ -255,6 +257,7 @@
 
 .imap-notes-list a:focus-visible,
 .imap-notes-sidebar .button.create:focus-visible,
+.imap-notes-editor .button:focus-visible,
 .imap-notes-editor button:focus-visible,
 .imap-notes-editor input[type="text"]:focus-visible,
 .imap-notes-editor textarea:focus-visible {
