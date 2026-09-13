@@ -24,4 +24,4 @@ $labels['deletecleanuppending'] = 'A jegyzet rejtett volt, a végső törlés m�
 $labels['cleanupdone'] = 'Megakadt törlés sikerült.';
 $labels['reloaded'] = 'A távoli verzió újbóli betöltése.';
 $labels['deleteconfirm'] = 'Törli ezt a jegyzetet?';
-$labels['foldererror'] = 'A "%s" jegyzet mailbox elérése vagy létrehozáse sikertelen.';
+$labels['foldererror'] = 'A "%s" jegyzet mailbox elérése vagy létrehozása sikertelen.';
