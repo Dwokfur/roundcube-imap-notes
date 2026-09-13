@@ -158,8 +158,8 @@ class ImapNotesPluginUiTest extends TestCase
 
         $html = $plugin->notes_editor([]);
 
-        $this->assertRegExp('/<label class="field" for="imap-notes-title-note-1-4"><span>Title<\\/span><input id="imap-notes-title-note-1-4"/', $html);
-        $this->assertRegExp('/<label class="field grow" for="imap-notes-body-note-1-4"><span>Note<\\/span><textarea id="imap-notes-body-note-1-4"/', $html);
+        $this->assertRegExp('/<div class="field-group"><label class="field" for="imap-notes-title-note-1-4"><span>Title<\\/span><\\/label><input id="imap-notes-title-note-1-4"/', $html);
+        $this->assertRegExp('/<div class="field-group grow"><label class="field" for="imap-notes-body-note-1-4"><span>Note<\\/span><\\/label><textarea id="imap-notes-body-note-1-4"/', $html);
         $this->assertStringContainsString('role="alert"', $html);
         $this->assertStringContainsString('role="status"', $html);
         $this->assertStringContainsString('data-confirm="Delete this note?"', $html);
@@ -190,8 +190,8 @@ class ImapNotesPluginUiTest extends TestCase
         $this->assertStringContainsString('readonly="readonly"', $html);
         $this->assertStringContainsString('role="status"', $html);
         $this->assertStringContainsString('role="region"', $html);
-        $this->assertRegExp('/<label class="field" for="imap-notes-title-readonly-7"><span>Title<\\/span>/', $html);
-        $this->assertRegExp('/<label class="field grow" for="imap-notes-body-readonly-7"><span>Note<\\/span>/', $html);
+        $this->assertRegExp('/<div class="field-group"><label class="field" for="imap-notes-title-readonly-7"><span>Title<\\/span><\\/label>/', $html);
+        $this->assertRegExp('/<div class="field-group grow"><label class="field" for="imap-notes-body-readonly-7"><span>Note<\\/span><\\/label>/', $html);
     }
 
     private function newPluginWithViewData(array $view_data)

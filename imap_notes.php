@@ -225,8 +225,8 @@ class imap_notes extends rcube_plugin
             $out .= $this->hidden($field, $note[$field] ?? '');
         }
         $out .= $this->hidden('read_only', $read_only ? '1' : '0');
-        $out .= '<label class="field" for="' . $this->escape($title_id) . '"><span>' . $this->escape($this->gettext('title')) . '</span><input id="' . $this->escape($title_id) . '" type="text" name="title" value="' . $title . '"' . ($read_only ? ' readonly="readonly"' : '') . ' /></label>';
-        $out .= '<label class="field grow" for="' . $this->escape($body_id) . '"><span>' . $this->escape($this->gettext('body')) . '</span><textarea id="' . $this->escape($body_id) . '" name="body" rows="18"' . ($read_only ? ' readonly="readonly"' : '') . '>' . $body . '</textarea></label>';
+        $out .= '<div class="field-group"><label class="field" for="' . $this->escape($title_id) . '"><span>' . $this->escape($this->gettext('title')) . '</span></label><input id="' . $this->escape($title_id) . '" type="text" name="title" value="' . $title . '"' . ($read_only ? ' readonly="readonly"' : '') . ' /></div>';
+        $out .= '<div class="field-group grow"><label class="field" for="' . $this->escape($body_id) . '"><span>' . $this->escape($this->gettext('body')) . '</span></label><textarea id="' . $this->escape($body_id) . '" name="body" rows="18"' . ($read_only ? ' readonly="readonly"' : '') . '>' . $body . '</textarea></div>';
         if ($read_only && $read_only_html !== '') {
             $out .= '<div class="imap-notes-rendered" role="region" aria-labelledby="' . $preview_id . '"><div class="label" id="' . $preview_id . '">' . $this->escape($this->gettext('renderedpreview')) . '</div>' . $read_only_html . '</div>';
         }

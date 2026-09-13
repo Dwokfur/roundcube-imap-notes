@@ -130,6 +130,7 @@
   color: var(--imap-notes-text);
 }
 
+.imap-notes-editor .field-group,
 .imap-notes-editor .field {
   display: flex;
   flex-direction: column;
@@ -137,6 +138,7 @@
   min-width: 0;
 }
 
+.imap-notes-editor .field-group.grow,
 .imap-notes-editor .field.grow,
 .imap-notes-editor textarea {
   min-height: 0;
