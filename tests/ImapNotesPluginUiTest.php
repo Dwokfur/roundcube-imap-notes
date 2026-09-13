@@ -108,7 +108,7 @@ class ImapNotesPluginUiTest extends TestCase
         $_POST = [];
     }
 
-    public function testStartupIncludesElasticScriptForDeleteConfirmation()
+    public function testStartupIncludesElasticStylesheetsForNotesTask()
     {
         $plugin = new imap_notes();
         $rc = new ImapNotesPluginUiTestFakeRcmail();
@@ -117,8 +117,21 @@ class ImapNotesPluginUiTest extends TestCase
 
         $plugin->startup([]);
 
-        $this->assertContains('skins/elastic/imap_notes.js', $plugin->included_scripts);
+        $this->assertSame([], $plugin->included_scripts);
         $this->assertContains('skins/elastic/imap_notes.css', $plugin->included_stylesheets);
+    }
+
+    public function testStartupDoesNotIncludeElasticNotesStylesheetOutsideNotesTask()
+    {
+        $plugin = new imap_notes();
+        $rc = new ImapNotesPluginUiTestFakeRcmail();
+        $rc->task = 'mail';
+        $this->setPrivate($plugin, 'rc', $rc);
+
+        $plugin->startup([]);
+
+        $this->assertNotContains('skins/elastic/imap_notes.css', $plugin->included_stylesheets);
+        $this->assertSame([], $plugin->included_scripts);
     }
 
     public function testNotesListMarksCurrentNoteAndExposesCleanupStateWithoutListRole()
@@ -235,7 +248,7 @@ class ImapNotesPluginUiTest extends TestCase
         $this->setPrivate($plugin, 'content', new ImapNotesContent());
         $this->setPrivate($plugin, 'service', $service);
 
-        $_POST = ['note_key' => 'note-1'];
+        $_POST = ['_token' => 'request-token', 'note_key' => 'note-1'];
         $plugin->action_delete();
 
         $view_data = $this->getPrivate($plugin, 'view_data');
@@ -245,6 +258,7 @@ class ImapNotesPluginUiTest extends TestCase
         $this->assertSame(0, $service->delete_calls);
         $this->assertTrue($view_data['confirm_delete']);
         $this->assertSame('imap_notes.notes', $rc->output->sent_template);
+        $this->assertSame(1, $rc->request_security_check_calls);
         $this->assertStringContainsString('Delete this note?', $html);
         $this->assertStringContainsString('name="delete_step" value="confirm"', $html);
         $this->assertStringContainsString('>Confirm delete</button>', $html);
@@ -281,6 +295,7 @@ class ImapNotesPluginUiTestFakeRcmail
 {
     public $task = '';
     public $output;
+    public $request_security_check_calls = 0;
 
     public function __construct()
     {
@@ -295,6 +310,13 @@ class ImapNotesPluginUiTestFakeRcmail
     public function get_request_token()
     {
         return 'request-token';
+    }
+
+    public function request_security_check()
+    {
+        $this->request_security_check_calls++;
+
+        return true;
     }
 }
 

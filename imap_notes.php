@@ -58,7 +58,6 @@ class imap_notes extends rcube_plugin
         $this->include_stylesheet($this->local_skin_path() . '/imap_notes_taskbar.css');
         if ($this->rc->task === 'imap_notes') {
             $this->include_stylesheet($this->local_skin_path() . '/imap_notes.css');
-            $this->include_script($this->local_skin_path() . '/imap_notes.js');
         }
 
         return $args;
@@ -103,6 +102,7 @@ class imap_notes extends rcube_plugin
     public function action_delete()
     {
         try {
+            $this->rc->request_security_check();
             if (rcube_utils::get_input_string('delete_step', rcube_utils::INPUT_GPC) !== 'confirm') {
                 $this->view_data = $this->service->view(rcube_utils::get_input_string('note_key', rcube_utils::INPUT_GPC));
                 $this->view_data['confirm_delete'] = true;
