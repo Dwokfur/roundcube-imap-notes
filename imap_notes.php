@@ -151,7 +151,7 @@ class imap_notes extends rcube_plugin
     {
         $out = '<div class="imap-notes-sidebar">';
         $out .= '<div class="imap-notes-folder">' . $this->escape($this->view_data['folder']) . '</div>';
-        $out .= '<a class="button create" href="' . $this->escape($this->rc->url(['task' => 'imap_notes', 'action' => 'index'])) . '">' . $this->escape($this->gettext('newnote')) . '</a>';
+        $out .= '<a class="button create btn btn-secondary" href="' . $this->escape($this->rc->url(['task' => 'imap_notes', 'action' => 'index'])) . '">' . $this->escape($this->gettext('newnote')) . '</a>';
         $out .= '<ul class="listing imap-notes-list">';
 
         $selected_key = $this->view_data['selected']['note_key'] ?? '';
@@ -243,18 +243,18 @@ class imap_notes extends rcube_plugin
             $out .= $this->hidden($field, $note[$field] ?? '');
         }
         $out .= $this->hidden('read_only', $read_only ? '1' : '0');
-        $out .= '<div class="field-group"><label class="field" for="' . $this->escape($title_id) . '"><span>' . $this->escape($this->gettext('title')) . '</span></label><input id="' . $this->escape($title_id) . '" type="text" name="title" value="' . $title . '"' . ($read_only ? ' readonly="readonly"' : '') . ' /></div>';
-        $out .= '<div class="field-group grow"><label class="field" for="' . $this->escape($body_id) . '"><span>' . $this->escape($this->gettext('body')) . '</span></label><textarea id="' . $this->escape($body_id) . '" name="body" rows="18"' . ($read_only ? ' readonly="readonly"' : '') . '>' . $body . '</textarea></div>';
+        $out .= '<div class="field-group"><label class="field" for="' . $this->escape($title_id) . '"><span>' . $this->escape($this->gettext('title')) . '</span></label><input class="form-control" id="' . $this->escape($title_id) . '" type="text" name="title" value="' . $title . '"' . ($read_only ? ' readonly="readonly"' : '') . ' /></div>';
+        $out .= '<div class="field-group grow"><label class="field" for="' . $this->escape($body_id) . '"><span>' . $this->escape($this->gettext('body')) . '</span></label><textarea class="form-control" id="' . $this->escape($body_id) . '" name="body" rows="18"' . ($read_only ? ' readonly="readonly"' : '') . '>' . $body . '</textarea></div>';
         if ($read_only && $read_only_html !== '') {
             $out .= '<div class="imap-notes-rendered" role="region" aria-labelledby="' . $preview_id . '"><div class="label" id="' . $preview_id . '">' . $this->escape($this->gettext('renderedpreview')) . '</div>' . $read_only_html . '</div>';
         }
         $out .= '<div class="actions">';
         if ($conflict) {
-            $out .= '<button type="submit" class="main-action" name="conflict_decision" value="copy">' . $this->escape($this->gettext('savemycopy')) . '</button>';
-            $out .= '<button type="submit" name="conflict_decision" value="reload">' . $this->escape($this->gettext('reloadremote')) . '</button>';
-            $out .= '<button type="submit" name="conflict_decision" value="overwrite">' . $this->escape($this->gettext('overwrite')) . '</button>';
+            $out .= '<button type="submit" class="main-action btn btn-primary" name="conflict_decision" value="copy">' . $this->escape($this->gettext('savemycopy')) . '</button>';
+            $out .= '<button type="submit" class="btn btn-secondary" name="conflict_decision" value="reload">' . $this->escape($this->gettext('reloadremote')) . '</button>';
+            $out .= '<button type="submit" class="btn btn-secondary" name="conflict_decision" value="overwrite">' . $this->escape($this->gettext('overwrite')) . '</button>';
         } elseif (!$read_only) {
-            $out .= '<button type="submit" class="main-action">' . $this->escape($this->gettext('save')) . '</button>';
+            $out .= '<button type="submit" class="main-action btn btn-primary">' . $this->escape($this->gettext('save')) . '</button>';
         }
         $out .= '</div></form>';
 
@@ -267,11 +267,11 @@ class imap_notes extends rcube_plugin
             }
             $out .= $this->hidden('delete_step', $confirm_delete ? 'confirm' : 'prompt');
             if ($confirm_delete) {
-                $out .= '<button type="submit" class="delete-button">' . $this->escape($this->gettext('confirmdelete')) . '</button>';
-                $out .= '<a class="button" href="' . $this->escape($cancel_delete_url) . '">' . $this->escape($this->gettext('canceldelete')) . '</a>';
+                $out .= '<button type="submit" class="delete-button btn btn-danger">' . $this->escape($this->gettext('confirmdelete')) . '</button>';
+                $out .= '<a class="button btn btn-secondary" href="' . $this->escape($cancel_delete_url) . '">' . $this->escape($this->gettext('canceldelete')) . '</a>';
             } else {
                 $out .= '<span class="voice" id="' . $this->escape($delete_confirm_id) . '">' . $this->escape($this->gettext('deleteconfirm')) . '</span>';
-                $out .= '<button type="submit" class="delete-button" aria-describedby="' . $this->escape($delete_confirm_id) . '">' . $this->escape($this->gettext('delete')) . '</button>';
+                $out .= '<button type="submit" class="delete-button btn btn-danger" aria-describedby="' . $this->escape($delete_confirm_id) . '">' . $this->escape($this->gettext('delete')) . '</button>';
             }
             $out .= '</form>';
         }
@@ -282,7 +282,7 @@ class imap_notes extends rcube_plugin
             $out .= $this->hidden('note_key', $note['note_key'] ?? '');
             $out .= $this->hidden('uid', !empty($note['cleanup_pending_target_uid']) ? $note['cleanup_pending_target_uid'] : ($note['uid'] ?? ''));
             $out .= $this->hidden('cleanup_pending_target_uid', $note['cleanup_pending_target_uid'] ?? '');
-            $out .= '<button type="submit">' . $this->escape($this->gettext('retrycleanup')) . '</button>';
+            $out .= '<button type="submit" class="btn btn-secondary">' . $this->escape($this->gettext('retrycleanup')) . '</button>';
             $out .= '</form>';
         }
 

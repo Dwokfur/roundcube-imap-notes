@@ -73,10 +73,15 @@ class ImapNotesContent
         return $title . "\n\n" . $body;
     }
 
-    public function normalizeImportedEditableBody($subject, $body_text, $eligible_for_title_strip)
+    public function normalizeImportedEditableBody($subject, $body_text, $eligible_for_title_strip, $plugin_managed = false)
     {
         $body_text = $this->normalizePlainText($body_text);
         if (!$eligible_for_title_strip) {
+            return $body_text;
+        }
+
+        $normalized_subject = $this->normalizeVisibleLine($subject);
+        if ($normalized_subject === '') {
             return $body_text;
         }
 
@@ -93,8 +98,27 @@ class ImapNotesContent
             return $body_text;
         }
 
-        if ($this->normalizeVisibleLine($lines[$first_index]) !== $this->normalizeVisibleLine($subject)) {
+        if ($this->normalizeVisibleLine($lines[$first_index]) !== $normalized_subject) {
             return $body_text;
+        }
+
+        if ($plugin_managed) {
+            $scan_index = $first_index;
+            $prefix_copies = 0;
+            while (
+                isset($lines[$scan_index], $lines[$scan_index + 1])
+                && $this->normalizeVisibleLine($lines[$scan_index]) === $normalized_subject
+                && trim($lines[$scan_index + 1]) === ''
+            ) {
+                $prefix_copies++;
+                $scan_index += 2;
+            }
+
+            if ($prefix_copies >= 2) {
+                array_splice($lines, $first_index, $scan_index - $first_index);
+
+                return implode("\n", $lines);
+            }
         }
 
         array_splice($lines, $first_index, 1);

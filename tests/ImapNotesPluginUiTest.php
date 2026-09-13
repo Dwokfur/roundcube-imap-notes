@@ -157,6 +157,7 @@ class ImapNotesPluginUiTest extends TestCase
 
         $html = $plugin->notes_list([]);
 
+        $this->assertStringContainsString('class="button create btn btn-secondary"', $html);
         $this->assertStringNotContainsString('role="list"', $html);
         $this->assertStringContainsString('aria-current="page"', $html);
         $this->assertRegExp('/aria-describedby="imap-note-status-note-1-0"/', $html);
@@ -186,10 +187,14 @@ class ImapNotesPluginUiTest extends TestCase
 
         $html = $plugin->notes_editor([]);
 
-        $this->assertRegExp('/<div class="field-group"><label class="field" for="imap-notes-title-note-1-4"><span>Title<\\/span><\\/label><input id="imap-notes-title-note-1-4"/', $html);
-        $this->assertRegExp('/<div class="field-group grow"><label class="field" for="imap-notes-body-note-1-4"><span>Note<\\/span><\\/label><textarea id="imap-notes-body-note-1-4"/', $html);
+        $this->assertRegExp('/<div class="field-group"><label class="field" for="imap-notes-title-note-1-4"><span>Title<\\/span><\\/label><input class="form-control" id="imap-notes-title-note-1-4"/', $html);
+        $this->assertRegExp('/<div class="field-group grow"><label class="field" for="imap-notes-body-note-1-4"><span>Note<\\/span><\\/label><textarea class="form-control" id="imap-notes-body-note-1-4"/', $html);
         $this->assertStringContainsString('role="alert"', $html);
         $this->assertStringContainsString('role="status"', $html);
+        $this->assertStringContainsString('class="main-action btn btn-primary"', $html);
+        $this->assertSame(2, substr_count($html, 'class="btn btn-secondary" name="conflict_decision"'));
+        $this->assertStringContainsString('name="conflict_decision" value="reload"', $html);
+        $this->assertStringContainsString('name="conflict_decision" value="overwrite"', $html);
         $this->assertStringContainsString('data-confirm="Delete this note?"', $html);
         $this->assertStringContainsString('<form class="note-delete-form" method="post"', $html);
         $this->assertStringContainsString('action="?task=imap_notes&amp;action=delete"', $html);
@@ -221,8 +226,8 @@ class ImapNotesPluginUiTest extends TestCase
         $this->assertStringContainsString('readonly="readonly"', $html);
         $this->assertStringContainsString('role="status"', $html);
         $this->assertStringContainsString('role="region"', $html);
-        $this->assertRegExp('/<div class="field-group"><label class="field" for="imap-notes-title-readonly-7"><span>Title<\\/span><\\/label>/', $html);
-        $this->assertRegExp('/<div class="field-group grow"><label class="field" for="imap-notes-body-readonly-7"><span>Note<\\/span><\\/label>/', $html);
+        $this->assertRegExp('/<div class="field-group"><label class="field" for="imap-notes-title-readonly-7"><span>Title<\\/span><\\/label><input class="form-control"/', $html);
+        $this->assertRegExp('/<div class="field-group grow"><label class="field" for="imap-notes-body-readonly-7"><span>Note<\\/span><\\/label><textarea class="form-control"/', $html);
     }
 
     public function testDeleteActionWithoutConfirmedFlagShowsServerSideConfirmationStep()
@@ -261,8 +266,8 @@ class ImapNotesPluginUiTest extends TestCase
         $this->assertSame(1, $rc->request_security_check_calls);
         $this->assertStringContainsString('Delete this note?', $html);
         $this->assertStringContainsString('name="delete_step" value="confirm"', $html);
-        $this->assertStringContainsString('>Confirm delete</button>', $html);
-        $this->assertStringContainsString('>Cancel</a>', $html);
+        $this->assertStringContainsString('class="delete-button btn btn-danger">Confirm delete</button>', $html);
+        $this->assertStringContainsString('class="button btn btn-secondary"', $html);
     }
 
     private function newPluginWithViewData(array $view_data)
