@@ -73,7 +73,7 @@ class ImapNotesContent
         return $title . "\n\n" . $body;
     }
 
-    public function normalizeImportedEditableBody($subject, $body_text, $eligible_for_title_strip, $plugin_managed = false)
+    public function normalizeImportedEditableBody($subject, $body_text, $eligible_for_title_strip, $collapse_repeated_prefixes = false)
     {
         $body_text = $this->normalizePlainText($body_text);
         if (!$eligible_for_title_strip) {
@@ -102,7 +102,7 @@ class ImapNotesContent
             return $body_text;
         }
 
-        if ($plugin_managed) {
+        if ($collapse_repeated_prefixes) {
             $scan_index = $first_index;
             $prefix_copies = 0;
             while (

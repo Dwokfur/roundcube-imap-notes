@@ -154,6 +154,11 @@
   max-width: 100%;
 }
 
+.imap-notes-editor .note-delete-form .imap-notes-delete-confirmation {
+  flex: 1 0 100%;
+  margin: 0;
+}
+
 .imap-notes-rendered {
   min-width: 0;
   max-width: 100%;

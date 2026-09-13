@@ -57,6 +57,11 @@ class ImapNotesService
         $body = $this->content->normalizePlainText($input['body'] ?? '');
         $title = $this->content->deriveTitle($input['title'] ?? '', $body, $fallback_title);
         $state = $this->extractState($input);
+        $existing_note = $this->loadExistingNoteForSave($folder, $state);
+
+        if ($this->shouldNormalizeCompatibleBody($existing_note)) {
+            $body = $this->content->normalizeImportedEditableBody($title, $body, true, true);
+        }
 
         if (!empty($state['uid']) && !empty($state['read_only'])) {
             return [
@@ -285,5 +290,19 @@ class ImapNotesService
         } catch (Exception $e) {
             return null;
         }
+    }
+
+    private function loadExistingNoteForSave($folder, array $state)
+    {
+        if (empty($state['note_key'])) {
+            return null;
+        }
+
+        return $this->storage->loadRevision($folder, $state['note_key']);
+    }
+
+    private function shouldNormalizeCompatibleBody($note)
+    {
+        return !empty($note) && (!empty($note['plugin_managed']) || !empty($note['legacy_apple']));
     }
 }

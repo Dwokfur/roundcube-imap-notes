@@ -266,6 +266,7 @@ class ImapNotesPluginUiTest extends TestCase
         $this->assertSame(1, $rc->request_security_check_calls);
         $this->assertStringContainsString('Delete this note?', $html);
         $this->assertStringContainsString('name="delete_step" value="confirm"', $html);
+        $this->assertRegExp('/<form class="note-delete-form" method="post" action="\\?task=imap_notes&amp;action=delete" data-confirm="Delete this note\\?">.*<div class="imap-notes-banner warning imap-notes-delete-confirmation" role="alert" aria-live="assertive" aria-atomic="true">Delete this note\\?<\\/div>.*class="delete-button btn btn-danger">Confirm delete<\\/button>/s', $html);
         $this->assertStringContainsString('class="delete-button btn btn-danger">Confirm delete</button>', $html);
         $this->assertStringContainsString('class="button btn btn-secondary"', $html);
     }

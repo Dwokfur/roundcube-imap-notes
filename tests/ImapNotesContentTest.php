@@ -167,20 +167,17 @@ class ImapNotesContentTest extends TestCase
     public function testRepeatedStorageLoadCyclesKeepEditorBodyStableAndSingleLeadingTitlePrefix()
     {
         $content = new ImapNotesContent();
-        $title = 'Próba cím';
-        $original_body = "Első sor\nMásodik sor";
+        $title = 'Próba';
+        $original_body = 'Ez egy próba jegyzet';
         $editable_body = $original_body;
 
         for ($i = 0; $i < 3; $i++) {
             $stored = $content->composeStorageBodyText($title, $editable_body);
-            $this->assertStringStartsWith($title . "\n\n", $stored);
-            $this->assertSame($title . "\n\n", substr($stored, 0, strlen($title . "\n\n")));
-            $this->assertFalse(str_starts_with($stored, $title . "\n\n" . $title . "\n\n"));
+            $this->assertSame("Próba\n\nEz egy próba jegyzet", $stored);
             $html = $content->textToSafeHtml($stored);
-            $this->assertStringStartsWith("<html><body>\n<p>{$title}</p>\n<p>", $html);
-            $this->assertFalse(str_starts_with($html, "<html><body>\n<p>{$title}</p>\n<p>{$title}</p>"));
+            $this->assertSame("<html><body>\n<p>Próba</p>\n<p>Ez egy próba jegyzet</p>\n</body></html>", $html);
 
-            $editable_body = $content->normalizeImportedEditableBody($title, $stored, true, true);
+            $editable_body = $content->normalizeImportedEditableBody($title, $content->htmlToText($html), true, true);
             $this->assertSame($original_body, $editable_body);
         }
     }

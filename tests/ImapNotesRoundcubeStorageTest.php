@@ -264,6 +264,26 @@ class ImapNotesRoundcubeStorageTest extends TestCase
         $this->assertSame('Ez egy próba jegyzet', $note['body_text']);
     }
 
+    public function testAppleMarkedMessageRepairsRepeatedTitlePrefixWithoutPluginMarker()
+    {
+        $storage = $this->newStorage();
+        rcube_message::$messages['Notes']['12'] = [
+            'headers' => [
+                'subject' => 'Próba',
+                'message-id' => '<legacy-repeated@example.invalid>',
+                'x-uniform-type-identifier' => 'com.apple.mail-note',
+            ],
+            'mimetype' => 'text/html',
+            'body' => "<html><body>\n<p>Próba</p>\n<p>Próba</p>\n<p>Ez egy próba jegyzet</p>\n</body></html>",
+            'attachments' => [],
+        ];
+
+        $note = $storage->loadRevision('Notes', ImapNotesRoundcubeStorage::encodeNoteKey('Notes', '12'));
+
+        $this->assertSame('Próba', $note['title']);
+        $this->assertSame('Ez egy próba jegyzet', $note['body_text']);
+    }
+
     public function testAppleMarkedBodyIsNotStrippedWhenFirstLineDoesNotMatchSubject()
     {
         $storage = $this->newStorage();
@@ -282,6 +302,25 @@ class ImapNotesRoundcubeStorageTest extends TestCase
 
         $this->assertSame('Próba', $note['title']);
         $this->assertSame("Másik első sor\n\nEz egy próba jegyzet", $note['body_text']);
+    }
+
+    public function testGenericImportedMessageWithMatchingFirstLineIsNotStripped()
+    {
+        $storage = $this->newStorage();
+        rcube_message::$messages['Notes']['13'] = [
+            'headers' => [
+                'subject' => 'Próba',
+                'message-id' => '<generic-matching@example.invalid>',
+            ],
+            'mimetype' => 'text/html',
+            'body' => "<html><body>\n<p>Próba</p>\n<p>Ez egy próba jegyzet</p>\n</body></html>",
+            'attachments' => [],
+        ];
+
+        $note = $storage->loadRevision('Notes', ImapNotesRoundcubeStorage::encodeNoteKey('Notes', '13'));
+
+        $this->assertSame('Próba', $note['title']);
+        $this->assertSame("Próba\n\nEz egy próba jegyzet", $note['body_text']);
     }
 
     private function newStorage(array $options = [])
