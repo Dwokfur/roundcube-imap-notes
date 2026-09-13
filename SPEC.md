@@ -36,6 +36,10 @@ Each plugin-written physical revision is a single message with:
 - `Message-ID: <fresh UUID-based ID>`
 - `Date: <RFC 5322 date>`
 - `Subject: <title>`
+- `From: <server-derived Roundcube default identity>`
+- `X-Mail-Created-Date: <logical creation RFC 5322 date>`
+
+`X-Roundcube-Note-Version: 1` remains an additional plugin marker and does not replace Apple-oriented metadata. The plugin never writes a `To` header.
 
 Roundcube's message layer is responsible for runtime MIME transfer decoding and declared charset conversion when notes are read back from IMAP.
 
@@ -49,13 +53,16 @@ Roundcube's message layer is responsible for runtime MIME transfer decoding and 
 
 - Editor input is plain text.
 - New/edited text is canonicalized into deterministic safe HTML.
+- For Apple-legacy compatibility, newly written plugin notes duplicate the title as Subject and as the first visible body line, followed by a blank visible line, then the editable body.
 - Imported HTML is sanitized before display and before conversion back to editor text, with UTF-8 parsing explicitly declared to libxml.
 - Saving imported or legacy-only notes upgrades them to the plugin-managed header set.
+- Duplicate-title stripping from imported body text is applied only to Apple-marked or plugin-managed compatible notes when the first non-empty visible body line equals Subject after Unicode whitespace normalization.
 
 ## Revision model
 
 - One logical note may have multiple physical IMAP message revisions.
 - The stable logical UUID survives edits unless the user chooses “save mine as a copy”.
+- `X-Mail-Created-Date` is set on logical note creation and preserved on later revisions of the same logical UUID.
 - Newest revision selection uses `X-Roundcube-Note-Updated`, then message date as fallback.
 - Older revisions with the same logical UUID are hidden by default, not auto-destroyed purely because they share the UUID.
 
@@ -118,3 +125,4 @@ On uncertain save, users must reload before retrying.
 - no attachments in v1
 - list rendering exposes previews only
 - malformed or untrusted logical UUID values must not be interpolated into raw IMAP `HEADER` searches
+- a valid Roundcube default identity email is required before save; sender identity is derived server-side and not accepted from request input

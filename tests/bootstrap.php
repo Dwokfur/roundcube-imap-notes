@@ -5,5 +5,7 @@ require_once __DIR__ . '/../lib/ImapNotesMessage.php';
 require_once __DIR__ . '/../lib/ImapNotesRevisionResolver.php';
 require_once __DIR__ . '/../lib/ImapNotesConflictResolver.php';
 require_once __DIR__ . '/../lib/ImapNotesStorageInterface.php';
+require_once __DIR__ . '/../lib/ImapNotesIdentityResolverInterface.php';
 require_once __DIR__ . '/../lib/ImapNotesService.php';
 require_once __DIR__ . '/../lib/ImapNotesRoundcubeStorage.php';
+require_once __DIR__ . '/../lib/ImapNotesIdentityResolver.php';

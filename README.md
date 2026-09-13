@@ -1,6 +1,6 @@
 # roundcube-imap-notes
 
-`imap_notes` is a standalone Roundcube plugin that stores one logical note as IMAP message revisions in a single configured mailbox. It is designed for a production-minded MVP with legacy Apple Mail IMAP-notes compatibility markers and ordinary-message visibility in Thunderbird.
+`imap_notes` is a standalone Roundcube plugin that stores one logical note as IMAP message revisions in a single configured mailbox. It targets legacy Apple Mail/iOS IMAP-note conventions (not guaranteed modern iCloud Notes synchronization) while keeping ordinary-message visibility in Thunderbird.
 
 ## Assumptions
 
@@ -48,8 +48,13 @@ Each plugin-written revision is a single HTML message with these headers:
 - `Message-ID: <fresh UUID-based ID>`
 - `Date: <current RFC 5322 date>`
 - `Subject: <title>`
+- `From: <Roundcube default identity (required, server-derived)>`
+- `X-Mail-Created-Date: <logical creation RFC 5322 date>`
 
 At runtime, IMAP transfer decoding and declared-body charset conversion are performed by Roundcube's message layer before the plugin sanitizes or renders note content.
+
+The plugin never writes a `To` header.
+`X-Mail-Created-Date` remains stable across revisions of the same logical note, while `Date`, `Message-ID`, and `X-Roundcube-Note-Updated` continue to change per physical revision.
 
 Title fallback order:
 
@@ -86,7 +91,7 @@ Delete conflicts do not offer overwrite semantics: the plugin reloads the curren
 ## Security model
 
 - Editing is plain-text-first: users type text, not raw HTML.
-- New and edited note bodies are canonicalized into deterministic UTF-8 HTML paragraphs and line breaks.
+- New and edited note bodies are canonicalized into deterministic UTF-8 HTML paragraphs and line breaks, with the title duplicated intentionally as Subject and as the first visible body line (followed by a blank line) for legacy Apple compatibility.
 - Imported HTML is sanitized before display/import, and the sanitizer parses supplied HTML explicitly as UTF-8.
 - The sanitizer strips scripts, event handlers, forms, frames, embeds, objects, styles, remote-loading image tags, and unsafe URI schemes.
 - The plugin does not guess-repair mojibake when the input is already valid UTF-8.
@@ -96,7 +101,7 @@ Delete conflicts do not offer overwrite semantics: the plugin reloads the curren
 ## Limitations
 
 - v1 does not support attachments, tags, nested notebooks, or HTML merge.
-- Unsupported multipart messages are read-only.
+- Plugin writes single-part HTML only; imported multipart/attachment-bearing messages remain readable but read-only in v1.
 - Changing `imap_notes_folder` does not migrate existing notes.
 - The plugin aims for legacy Apple Mail IMAP-notes compatibility, not modern iCloud Notes synchronization.
 - When Trash is unavailable and `UIDPLUS` is unavailable, final deletion cleanup may remain deferred.
@@ -109,6 +114,8 @@ Run the unit tests:
 ```bash
 phpunit
 ```
+
+Fixture `.eml` tests under `tests/fixtures/apple` validate the plugin compatibility contract (headers, normalization, multipart read-only behavior), but do not guarantee every historical Apple client/server variant.
 
 Syntax-check the plugin files:
 

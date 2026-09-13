@@ -58,6 +58,53 @@ class ImapNotesContent
         return "<html><body>\n" . implode("\n", $html) . "\n</body></html>";
     }
 
+    public function composeStorageBodyText($title, $body)
+    {
+        $title = trim(preg_replace('/\s+/u', ' ', $this->normalizePlainText($title)));
+        $body = $this->normalizePlainText($body);
+
+        if ($title === '') {
+            return $body;
+        }
+        if (trim($body) === '') {
+            return $title;
+        }
+
+        return $title . "\n\n" . $body;
+    }
+
+    public function normalizeImportedEditableBody($subject, $body_text, $eligible_for_title_strip)
+    {
+        $body_text = $this->normalizePlainText($body_text);
+        if (!$eligible_for_title_strip) {
+            return $body_text;
+        }
+
+        $lines = preg_split('/\n/', $body_text);
+        $first_index = null;
+        foreach ($lines as $index => $line) {
+            if (trim($line) !== '') {
+                $first_index = $index;
+                break;
+            }
+        }
+
+        if ($first_index === null) {
+            return $body_text;
+        }
+
+        if ($this->normalizeVisibleLine($lines[$first_index]) !== $this->normalizeVisibleLine($subject)) {
+            return $body_text;
+        }
+
+        array_splice($lines, $first_index, 1);
+        if (isset($lines[$first_index]) && trim($lines[$first_index]) === '') {
+            array_splice($lines, $first_index, 1);
+        }
+
+        return implode("\n", $lines);
+    }
+
     public function sanitizeHtml($html)
     {
         $html = $this->ensureUtf8((string) $html);
@@ -237,5 +284,10 @@ class ImapNotesContent
         $converted = @iconv('UTF-8', 'UTF-8//IGNORE', $value);
 
         return $converted !== false ? $converted : $value;
+    }
+
+    private function normalizeVisibleLine($value)
+    {
+        return trim(preg_replace('/[\s\p{Z}]+/u', ' ', $this->normalizePlainText((string) $value)));
     }
 }

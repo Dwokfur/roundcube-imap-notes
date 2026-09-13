@@ -1,0 +1,11 @@
+From: Legacy User <legacy@example.test>
+Date: Sat, 12 Sep 2026 13:30:00 +0000
+Message-ID: <legacy-mismatch@example.test>
+Subject: Subject title
+MIME-Version: 1.0
+Content-Type: text/html; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+X-Uniform-Type-Identifier: com.apple.mail-note
+X-Universally-Unique-Identifier: 66666666-6666-4666-8666-666666666666
+
+<html><body><div>Different first body line</div><div><br></div><div>Second line</div></body></html>

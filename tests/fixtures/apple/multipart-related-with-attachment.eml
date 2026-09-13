@@ -1,0 +1,21 @@
+From: Legacy User <legacy@example.test>
+Date: Sat, 12 Sep 2026 13:20:00 +0000
+Message-ID: <legacy-multipart@example.test>
+Subject: Multipart Title
+MIME-Version: 1.0
+Content-Type: multipart/related; boundary="BOUNDARY-1"
+X-Uniform-Type-Identifier: com.apple.mail-note
+X-Universally-Unique-Identifier: 44444444-4444-4444-8444-444444444444
+
+--BOUNDARY-1
+Content-Type: text/html; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+
+<html><body><div>Multipart Title</div><div><br></div><div>Readable body</div></body></html>
+--BOUNDARY-1
+Content-Type: image/png
+Content-Transfer-Encoding: base64
+Content-ID: <image1>
+
+iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=
+--BOUNDARY-1--

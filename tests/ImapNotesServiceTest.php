@@ -24,7 +24,7 @@ class ImapNotesServiceTest extends TestCase
     public function testMissingCurrentRevisionStillAllowsSave()
     {
         $storage = new ImapNotesServiceTestStorage(['status' => 'missing']);
-        $service = new ImapNotesService($storage, new ImapNotesContent(), new ImapNotesMessage(), new ImapNotesRevisionResolver(), new ImapNotesConflictResolver());
+        $service = new ImapNotesService($storage, new ImapNotesContent(), new ImapNotesMessage(), new ImapNotesRevisionResolver(), new ImapNotesConflictResolver(), new ImapNotesServiceTestIdentityResolver('Tester <tester@example.test>'));
 
         $result = $service->save([
             'uid' => '1',
@@ -42,7 +42,7 @@ class ImapNotesServiceTest extends TestCase
     public function testConflictCopyCreatesNewLogicalUuid()
     {
         $storage = new ImapNotesServiceTestStorage(['status' => 'conflict', 'current' => ['note_key' => 'remote', 'title' => 'Remote']]);
-        $service = new ImapNotesService($storage, new ImapNotesContent(), new ImapNotesMessage(), new ImapNotesRevisionResolver(), new ImapNotesConflictResolver());
+        $service = new ImapNotesService($storage, new ImapNotesContent(), new ImapNotesMessage(), new ImapNotesRevisionResolver(), new ImapNotesConflictResolver(), new ImapNotesServiceTestIdentityResolver('Tester <tester@example.test>'));
 
         $result = $service->save([
             'uid' => '1',
@@ -63,7 +63,7 @@ class ImapNotesServiceTest extends TestCase
     public function testConflictOverwritePreservesLogicalUuidAndRetiresPriorRevision()
     {
         $storage = new ImapNotesServiceTestStorage(['status' => 'conflict', 'current' => ['note_key' => 'remote', 'title' => 'Remote']]);
-        $service = new ImapNotesService($storage, new ImapNotesContent(), new ImapNotesMessage(), new ImapNotesRevisionResolver(), new ImapNotesConflictResolver());
+        $service = new ImapNotesService($storage, new ImapNotesContent(), new ImapNotesMessage(), new ImapNotesRevisionResolver(), new ImapNotesConflictResolver(), new ImapNotesServiceTestIdentityResolver('Tester <tester@example.test>'));
 
         $result = $service->save([
             'uid' => '1',
@@ -86,7 +86,7 @@ class ImapNotesServiceTest extends TestCase
     {
         $storage = new ImapNotesServiceTestStorage(['status' => 'ok']);
         $storage->delete_result = ['status' => 'cleanup_pending', 'cleanup_pending' => true];
-        $service = new ImapNotesService($storage, new ImapNotesContent(), new ImapNotesMessage(), new ImapNotesRevisionResolver(), new ImapNotesConflictResolver());
+        $service = new ImapNotesService($storage, new ImapNotesContent(), new ImapNotesMessage(), new ImapNotesRevisionResolver(), new ImapNotesConflictResolver(), new ImapNotesServiceTestIdentityResolver('Tester <tester@example.test>'));
 
         $result = $service->delete([
             'note_key' => 'saved-note',
@@ -107,7 +107,7 @@ class ImapNotesServiceTest extends TestCase
                 'title' => 'Remote current',
             ],
         ];
-        $service = new ImapNotesService($storage, new ImapNotesContent(), new ImapNotesMessage(), new ImapNotesRevisionResolver(), new ImapNotesConflictResolver());
+        $service = new ImapNotesService($storage, new ImapNotesContent(), new ImapNotesMessage(), new ImapNotesRevisionResolver(), new ImapNotesConflictResolver(), new ImapNotesServiceTestIdentityResolver('Tester <tester@example.test>'));
 
         $result = $service->delete([
             'note_key' => 'saved-note',
@@ -124,7 +124,7 @@ class ImapNotesServiceTest extends TestCase
     {
         $storage = new ImapNotesServiceTestStorage(['status' => 'ok']);
         $storage->retry_result = ['status' => 'cleaned', 'cleanup_pending' => false];
-        $service = new ImapNotesService($storage, new ImapNotesContent(), new ImapNotesMessage(), new ImapNotesRevisionResolver(), new ImapNotesConflictResolver());
+        $service = new ImapNotesService($storage, new ImapNotesContent(), new ImapNotesMessage(), new ImapNotesRevisionResolver(), new ImapNotesConflictResolver(), new ImapNotesServiceTestIdentityResolver('Tester <tester@example.test>'));
 
         $result = $service->retryCleanup([
             'note_key' => 'saved-note',
@@ -144,6 +144,71 @@ class ImapNotesServiceTest extends TestCase
         $this->assertArrayNotHasKey('modseq', $note);
     }
 
+    public function testRequestCannotOverrideServerDerivedFromIdentity()
+    {
+        $storage = new ImapNotesServiceTestStorage(['status' => 'ok']);
+        $service = new ImapNotesService(
+            $storage,
+            new ImapNotesContent(),
+            new ImapNotesMessage(),
+            new ImapNotesRevisionResolver(),
+            new ImapNotesConflictResolver(),
+            new ImapNotesServiceTestIdentityResolver('Server Sender <server@example.test>')
+        );
+
+        $result = $service->save([
+            'title' => 'Próba',
+            'body' => 'Ez egy próba jegyzet',
+            'from' => 'Attacker <attacker@example.test>',
+        ], 'Untitled note');
+
+        $this->assertSame('saved', $result['status']);
+        $this->assertStringContainsString('From: Server Sender <server@example.test>', $storage->last_append['raw']);
+        $this->assertStringNotContainsString('attacker@example.test', $storage->last_append['raw']);
+    }
+
+    public function testSaveFailsWithoutValidIdentityBeforeAppend()
+    {
+        $storage = new ImapNotesServiceTestStorage(['status' => 'ok']);
+        $service = new ImapNotesService(
+            $storage,
+            new ImapNotesContent(),
+            new ImapNotesMessage(),
+            new ImapNotesRevisionResolver(),
+            new ImapNotesConflictResolver(),
+            new ImapNotesServiceTestIdentityResolver('invalid', true)
+        );
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('valid default identity');
+        $service->save([
+            'title' => 'Próba',
+            'body' => 'Ez egy próba jegyzet',
+        ], 'Untitled note');
+    }
+
+    public function testSaveWritesTitleThenBlankLineThenBodyInStoredHtml()
+    {
+        $storage = new ImapNotesServiceTestStorage(['status' => 'ok']);
+        $service = new ImapNotesService(
+            $storage,
+            new ImapNotesContent(),
+            new ImapNotesMessage(),
+            new ImapNotesRevisionResolver(),
+            new ImapNotesConflictResolver(),
+            new ImapNotesServiceTestIdentityResolver('Tester <tester@example.test>')
+        );
+
+        $result = $service->save([
+            'title' => 'Próba',
+            'body' => "Ez egy próba jegyzet\náéíóöőúüű",
+        ], 'Untitled note');
+
+        $this->assertSame('saved', $result['status']);
+        $this->assertStringContainsString('<p>Próba</p>', $storage->last_append['html']);
+        $this->assertStringContainsString('<p>Ez egy próba jegyzet<br />' . "\n" . 'áéíóöőúüű</p>', $storage->last_append['html']);
+    }
+
     private function buildService(array $conflict_state)
     {
         return new ImapNotesService(
@@ -151,7 +216,8 @@ class ImapNotesServiceTest extends TestCase
             new ImapNotesContent(),
             new ImapNotesMessage(),
             new ImapNotesRevisionResolver(),
-            new ImapNotesConflictResolver()
+            new ImapNotesConflictResolver(),
+            new ImapNotesServiceTestIdentityResolver('Tester <tester@example.test>')
         );
     }
 }
@@ -203,6 +269,7 @@ class ImapNotesServiceTestStorage implements ImapNotesStorageInterface
                 'logical_uuid' => $append['logical_uuid'],
                 'message_id' => '<saved@example.invalid>',
                 'updated_at' => $append['updated_at'],
+                'created_at' => $append['created_at'] ?? 'Sat, 12 Sep 2026 13:05:00 +0000',
                 'title' => $append['subject'],
                 'preview' => 'Body',
                 'body_text' => 'Body',
@@ -259,5 +326,26 @@ class ImapNotesServiceTestStorage implements ImapNotesStorageInterface
     public function retryCleanup($folder, array $state)
     {
         return $this->retry_result;
+    }
+}
+
+class ImapNotesServiceTestIdentityResolver implements ImapNotesIdentityResolverInterface
+{
+    private $from;
+    private $throw;
+
+    public function __construct($from, $throw = false)
+    {
+        $this->from = $from;
+        $this->throw = $throw;
+    }
+
+    public function resolveFromHeader()
+    {
+        if ($this->throw) {
+            throw new RuntimeException('A valid default identity is required to save notes.');
+        }
+
+        return $this->from;
     }
 }
