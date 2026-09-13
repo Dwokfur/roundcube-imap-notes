@@ -103,7 +103,7 @@ class imap_notes extends rcube_plugin
     public function action_delete()
     {
         try {
-            if (rcube_utils::get_input_string('confirm_delete', rcube_utils::INPUT_GPC) !== '1') {
+            if (rcube_utils::get_input_string('delete_step', rcube_utils::INPUT_GPC) !== 'confirm') {
                 $this->view_data = $this->service->view(rcube_utils::get_input_string('note_key', rcube_utils::INPUT_GPC));
                 $this->view_data['confirm_delete'] = true;
                 $this->renderIndex();
@@ -265,8 +265,8 @@ class imap_notes extends rcube_plugin
             foreach (['note_key', 'mailbox', 'uid', 'uidvalidity', 'logical_uuid', 'message_id', 'updated_at', 'created_at', 'fingerprint'] as $field) {
                 $out .= $this->hidden($field, $note[$field] ?? '');
             }
+            $out .= $this->hidden('delete_step', $confirm_delete ? 'confirm' : 'prompt');
             if ($confirm_delete) {
-                $out .= $this->hidden('confirm_delete', '1');
                 $out .= '<button type="submit" class="delete-button">' . $this->escape($this->gettext('confirmdelete')) . '</button>';
                 $out .= '<a class="button" href="' . $this->escape($cancel_delete_url) . '">' . $this->escape($this->gettext('canceldelete')) . '</a>';
             } else {

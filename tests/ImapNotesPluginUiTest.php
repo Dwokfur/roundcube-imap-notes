@@ -180,6 +180,7 @@ class ImapNotesPluginUiTest extends TestCase
         $this->assertStringContainsString('data-confirm="Delete this note?"', $html);
         $this->assertStringContainsString('<form class="note-delete-form" method="post"', $html);
         $this->assertStringContainsString('action="?task=imap_notes&amp;action=delete"', $html);
+        $this->assertStringContainsString('name="delete_step" value="prompt"', $html);
         $this->assertStringContainsString('aria-describedby="imap-notes-delete-confirm-note-1-4"', $html);
         $this->assertStringContainsString('<span class="voice" id="imap-notes-delete-confirm-note-1-4">Delete this note?</span>', $html);
     }
@@ -245,7 +246,7 @@ class ImapNotesPluginUiTest extends TestCase
         $this->assertTrue($view_data['confirm_delete']);
         $this->assertSame('imap_notes.notes', $rc->output->sent_template);
         $this->assertStringContainsString('Delete this note?', $html);
-        $this->assertStringContainsString('name="confirm_delete" value="1"', $html);
+        $this->assertStringContainsString('name="delete_step" value="confirm"', $html);
         $this->assertStringContainsString('>Confirm delete</button>', $html);
         $this->assertStringContainsString('>Cancel</a>', $html);
     }

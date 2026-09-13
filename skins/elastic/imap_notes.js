@@ -1,7 +1,7 @@
 (function () {
   document.addEventListener('submit', function (event) {
     var form = event.target;
-    var confirmedField;
+    var deleteStepField;
     var message;
 
     if (!form || !form.classList || !form.classList.contains('note-delete-form')) {
@@ -14,13 +14,9 @@
       return;
     }
 
-    confirmedField = form.querySelector('input[name="confirm_delete"]');
-    if (!confirmedField) {
-      confirmedField = document.createElement('input');
-      confirmedField.type = 'hidden';
-      confirmedField.name = 'confirm_delete';
-      form.appendChild(confirmedField);
+    deleteStepField = form.querySelector('input[name="delete_step"]');
+    if (deleteStepField) {
+      deleteStepField.value = 'confirm';
     }
-    confirmedField.value = '1';
   }, true);
 })();
