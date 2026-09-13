@@ -402,9 +402,10 @@ class ImapNotesRoundcubeStorage implements ImapNotesStorageInterface
         $subject = (string) $message->headers->get('subject');
         $title = $this->content->deriveTitle($subject, $body_text);
         $body_text = $this->content->normalizeImportedEditableBody(
-            $title,
+            $subject,
             $body_text,
-            $plugin_managed || $legacy_apple
+            $plugin_managed || $legacy_apple,
+            $plugin_managed
         );
         if ($created_at === '') {
             $created_at = (string) ($message->headers->internaldate ?? '');

@@ -1,21 +1,11 @@
 .imap-notes-layout,
 .imap-notes-main {
-  --imap-notes-surface: var(--layout-content-background-color, var(--color-main-background, #fff));
-  --imap-notes-surface-raised: var(--layout-sidebar-background-color, var(--layout-content-background-color, #fff));
-  --imap-notes-text: var(--layout-content-text-color, var(--color-main-text, #333));
-  --imap-notes-muted: var(--layout-sidebar-text-secondary-color, #666);
-  --imap-notes-border: var(--color-border, #ddd);
+  --imap-notes-surface: var(--layout-content-background-color);
+  --imap-notes-surface-raised: var(--layout-sidebar-background-color, var(--layout-content-background-color));
+  --imap-notes-text: var(--layout-content-text-color);
+  --imap-notes-muted: var(--layout-sidebar-text-secondary-color, var(--layout-content-text-color));
+  --imap-notes-border: var(--color-border, currentColor);
   --imap-notes-focus: var(--color-primary, #2c7be5);
-  --imap-notes-button-background: var(--button-background-color, var(--imap-notes-surface-raised));
-  --imap-notes-button-color: var(--button-text-color, var(--imap-notes-text));
-  --imap-notes-button-border: var(--button-border-color, var(--imap-notes-border));
-  --imap-notes-button-hover: var(--button-hover-background-color, var(--imap-notes-button-background));
-  --imap-notes-primary-background: var(--button-primary-background-color, var(--imap-notes-focus));
-  --imap-notes-primary-color: var(--button-primary-text-color, #fff);
-  --imap-notes-input-background: var(--input-background-color, var(--imap-notes-surface));
-  --imap-notes-input-color: var(--input-text-color, var(--imap-notes-text));
-  --imap-notes-input-border: var(--input-border-color, var(--imap-notes-border));
-  --imap-notes-placeholder: var(--input-placeholder-color, var(--imap-notes-muted));
   --imap-notes-selected-background: var(--color-primary-light, color-mix(in srgb, var(--imap-notes-focus) 12%, var(--imap-notes-surface)));
   --imap-notes-warning-background: var(--color-warning-background, color-mix(in srgb, #ffc107 16%, var(--imap-notes-surface)));
   --imap-notes-warning-border: var(--color-warning-border, color-mix(in srgb, #ffc107 35%, var(--imap-notes-border)));
@@ -41,25 +31,7 @@
 .imap-notes-sidebar .button.create,
 .imap-notes-editor .button,
 .imap-notes-editor button {
-  appearance: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   min-height: 44px;
-  border: 1px solid var(--imap-notes-button-border);
-  background: var(--imap-notes-button-background);
-  color: var(--imap-notes-button-color);
-  border-radius: 0.25rem;
-  padding: 0.55rem 0.8rem;
-  cursor: pointer;
-  text-decoration: none;
-  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.imap-notes-sidebar .button.create:hover,
-.imap-notes-editor .button:hover,
-.imap-notes-editor button:hover:not(:disabled) {
-  background: var(--imap-notes-button-hover);
 }
 
 .imap-notes-editor button:disabled {
@@ -94,7 +66,7 @@
   border-radius: 0.35rem;
   text-decoration: none;
   color: inherit;
-  background: var(--imap-notes-surface-raised);
+  background: var(--imap-notes-surface-raised, transparent);
   min-width: 0;
 }
 
@@ -151,29 +123,13 @@
 .imap-notes-editor textarea {
   width: 100%;
   box-sizing: border-box;
-  border: 1px solid var(--imap-notes-input-border);
-  border-radius: 0.35rem;
-  padding: 0.7rem;
   font: inherit;
-  color: var(--imap-notes-input-color);
-  background: var(--imap-notes-input-background);
 }
 
 .imap-notes-editor textarea {
   resize: vertical;
   min-height: 16rem;
   overflow-wrap: anywhere;
-}
-
-.imap-notes-editor input[type="text"]::placeholder,
-.imap-notes-editor textarea::placeholder {
-  color: var(--imap-notes-placeholder);
-}
-
-.imap-notes-editor input[readonly],
-.imap-notes-editor textarea[readonly] {
-  color: var(--imap-notes-input-color);
-  background: var(--imap-notes-input-background);
 }
 
 .imap-notes-editor .note-form {
@@ -205,7 +161,7 @@
   border: 1px solid var(--imap-notes-border);
   border-radius: 0.35rem;
   padding: 0.75rem;
-  background: var(--imap-notes-input-background);
+  background: var(--imap-notes-surface, transparent);
   color: var(--imap-notes-text);
 }
 
@@ -224,16 +180,6 @@
 .imap-notes-rendered pre {
   overflow: auto;
   white-space: pre-wrap;
-}
-
-.imap-notes-editor .main-action {
-  border-color: var(--imap-notes-primary-background);
-  background: var(--imap-notes-primary-background);
-  color: var(--imap-notes-primary-color);
-}
-
-.imap-notes-editor .main-action:hover:not(:disabled) {
-  background: var(--imap-notes-primary-background);
 }
 
 .imap-notes-banner {

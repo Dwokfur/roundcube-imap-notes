@@ -224,7 +224,7 @@ class ImapNotesRoundcubeStorageTest extends TestCase
         $this->assertSame([['INBOX/Notes', true]], $this->fakeStorage($storage)->create_folder_calls);
     }
 
-    public function testAppleMessageWithoutSubjectUsesFirstLineAsTitleAndStripsItFromEditableBody()
+    public function testAppleMessageWithoutSubjectUsesFirstLineAsTitleWithoutStrippingBody()
     {
         $storage = $this->newStorage();
         rcube_message::$messages['Notes']['9'] = [
@@ -240,7 +240,48 @@ class ImapNotesRoundcubeStorageTest extends TestCase
         $note = $storage->loadRevision('Notes', ImapNotesRoundcubeStorage::encodeNoteKey('Notes', '9'));
 
         $this->assertSame('First line', $note['title']);
-        $this->assertSame('Second line', $note['body_text']);
+        $this->assertSame("First line\n\nSecond line", $note['body_text']);
+    }
+
+    public function testPluginManagedMessageRepairsRepeatedTitlePrefixInEditableBody()
+    {
+        $storage = $this->newStorage();
+        rcube_message::$messages['Notes']['10'] = [
+            'headers' => [
+                'subject' => 'Próba',
+                'message-id' => '<repeated@example.invalid>',
+                'x-roundcube-note-version' => '1',
+                'x-uniform-type-identifier' => 'com.apple.mail-note',
+            ],
+            'mimetype' => 'text/plain',
+            'body' => "Próba\n\nPróba\n\nEz egy próba jegyzet",
+            'attachments' => [],
+        ];
+
+        $note = $storage->loadRevision('Notes', ImapNotesRoundcubeStorage::encodeNoteKey('Notes', '10'));
+
+        $this->assertSame('Próba', $note['title']);
+        $this->assertSame('Ez egy próba jegyzet', $note['body_text']);
+    }
+
+    public function testAppleMarkedBodyIsNotStrippedWhenFirstLineDoesNotMatchSubject()
+    {
+        $storage = $this->newStorage();
+        rcube_message::$messages['Notes']['11'] = [
+            'headers' => [
+                'subject' => 'Próba',
+                'message-id' => '<mismatch@example.invalid>',
+                'x-uniform-type-identifier' => 'com.apple.mail-note',
+            ],
+            'mimetype' => 'text/plain',
+            'body' => "Másik első sor\n\nEz egy próba jegyzet",
+            'attachments' => [],
+        ];
+
+        $note = $storage->loadRevision('Notes', ImapNotesRoundcubeStorage::encodeNoteKey('Notes', '11'));
+
+        $this->assertSame('Próba', $note['title']);
+        $this->assertSame("Másik első sor\n\nEz egy próba jegyzet", $note['body_text']);
     }
 
     private function newStorage(array $options = [])

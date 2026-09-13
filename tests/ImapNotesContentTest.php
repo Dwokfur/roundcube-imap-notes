@@ -119,6 +119,28 @@ class ImapNotesContentTest extends TestCase
         );
     }
 
+    public function testNormalizeImportedEditableBodyRepairsConsecutivePluginManagedPrefixes()
+    {
+        $content = new ImapNotesContent();
+        $body = "Próba\n\nPróba\n\nEz egy próba jegyzet";
+
+        $this->assertSame(
+            'Ez egy próba jegyzet',
+            $content->normalizeImportedEditableBody('Próba', $body, true, true)
+        );
+    }
+
+    public function testNormalizeImportedEditableBodyKeepsCompatibleBodyWhenSubjectDoesNotMatch()
+    {
+        $content = new ImapNotesContent();
+        $body = "Próba\n\nEz egy próba jegyzet";
+
+        $this->assertSame(
+            $body,
+            $content->normalizeImportedEditableBody('', $body, true, true)
+        );
+    }
+
     public function testNormalizeImportedEditableBodyKeepsMismatchUntouched()
     {
         $content = new ImapNotesContent();
@@ -128,5 +150,38 @@ class ImapNotesContentTest extends TestCase
             $body,
             $content->normalizeImportedEditableBody('Más cím', $body, true)
         );
+    }
+
+    public function testNormalizeImportedEditableBodyMatchesSubjectWithUnicodeWhitespace()
+    {
+        $content = new ImapNotesContent();
+        $subject = "Árvíztűrő\u{00A0}tükörfúrógép";
+        $body = "Árvíztűrő tükörfúrógép\n\nTörzs";
+
+        $this->assertSame(
+            'Törzs',
+            $content->normalizeImportedEditableBody($subject, $body, true, true)
+        );
+    }
+
+    public function testRepeatedStorageLoadCyclesKeepEditorBodyStableAndSingleLeadingTitlePrefix()
+    {
+        $content = new ImapNotesContent();
+        $title = 'Próba cím';
+        $original_body = "Első sor\nMásodik sor";
+        $editable_body = $original_body;
+
+        for ($i = 0; $i < 3; $i++) {
+            $stored = $content->composeStorageBodyText($title, $editable_body);
+            $this->assertStringStartsWith($title . "\n\n", $stored);
+            $this->assertSame($title . "\n\n", substr($stored, 0, strlen($title . "\n\n")));
+            $this->assertFalse(str_starts_with($stored, $title . "\n\n" . $title . "\n\n"));
+            $html = $content->textToSafeHtml($stored);
+            $this->assertStringStartsWith("<html><body>\n<p>{$title}</p>\n<p>", $html);
+            $this->assertFalse(str_starts_with($html, "<html><body>\n<p>{$title}</p>\n<p>{$title}</p>"));
+
+            $editable_body = $content->normalizeImportedEditableBody($title, $stored, true, true);
+            $this->assertSame($original_body, $editable_body);
+        }
     }
 }
