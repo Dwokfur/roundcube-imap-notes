@@ -90,6 +90,9 @@ class ImapNotesService
         $logical_uuid = !empty($state['logical_uuid']) && empty($decision['copy'])
             ? $state['logical_uuid']
             : ImapNotesMessage::uuidV4();
+        if ($this->submittedBodyStartsWithTitle($title, $body) && $this->shouldNormalizeCompatibleBody($state, $conflict_state['current'] ?? null)) {
+            $body = $this->content->normalizeImportedEditableBody($title, $body, false, true);
+        }
         $storage_text = $this->content->composeStorageBodyText($title, $body);
         $html = $this->content->textToSafeHtml($storage_text);
         $created_at = $this->parseCreatedDate((string) ($state['created_at'] ?? ''));
@@ -271,6 +274,8 @@ class ImapNotesService
             'created_at' => $input['created_at'] ?? '',
             'fingerprint' => $input['fingerprint'] ?? '',
             'read_only' => !empty($input['read_only']),
+            'plugin_managed' => !empty($input['plugin_managed']),
+            'legacy_apple' => !empty($input['legacy_apple']),
         ];
     }
 
@@ -285,5 +290,30 @@ class ImapNotesService
         } catch (Exception $e) {
             return null;
         }
+    }
+
+    private function shouldNormalizeCompatibleBody(array $submitted_state, $note)
+    {
+        return !empty($submitted_state['plugin_managed'])
+            || !empty($submitted_state['legacy_apple'])
+            || (!empty($note) && (!empty($note['plugin_managed']) || !empty($note['legacy_apple'])));
+    }
+
+    private function submittedBodyStartsWithTitle($title, $body)
+    {
+        $normalized_title = trim(preg_replace('/[\s\p{Z}]+/u', ' ', $this->content->normalizePlainText((string) $title)));
+        if ($normalized_title === '') {
+            return false;
+        }
+
+        foreach (preg_split('/\n/', $this->content->normalizePlainText((string) $body)) as $line) {
+            if (trim($line) === '') {
+                continue;
+            }
+
+            return trim(preg_replace('/[\s\p{Z}]+/u', ' ', $this->content->normalizePlainText($line))) === $normalized_title;
+        }
+
+        return false;
     }
 }

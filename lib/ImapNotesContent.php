@@ -73,13 +73,13 @@ class ImapNotesContent
         return $title . "\n\n" . $body;
     }
 
-    public function normalizeImportedEditableBody($subject, $body_text, $eligible_for_title_strip, $plugin_managed = false)
+    /**
+     * @param bool $eligible_for_title_strip Strip a single leading title line when the body is known to use title-prefixed note storage.
+     * @param bool $collapse_repeated_prefixes Collapse duplicated title-plus-blank-line prefixes for compatible imports before editing.
+     */
+    public function normalizeImportedEditableBody($subject, $body_text, $eligible_for_title_strip, $collapse_repeated_prefixes = false)
     {
         $body_text = $this->normalizePlainText($body_text);
-        if (!$eligible_for_title_strip) {
-            return $body_text;
-        }
-
         $normalized_subject = $this->normalizeVisibleLine($subject);
         if ($normalized_subject === '') {
             return $body_text;
@@ -102,7 +102,7 @@ class ImapNotesContent
             return $body_text;
         }
 
-        if ($plugin_managed) {
+        if ($collapse_repeated_prefixes) {
             $scan_index = $first_index;
             $prefix_copies = 0;
             while (
@@ -119,6 +119,10 @@ class ImapNotesContent
 
                 return implode("\n", $lines);
             }
+        }
+
+        if (!$eligible_for_title_strip) {
+            return $body_text;
         }
 
         array_splice($lines, $first_index, 1);

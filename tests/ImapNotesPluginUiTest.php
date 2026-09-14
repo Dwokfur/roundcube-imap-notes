@@ -160,7 +160,7 @@ class ImapNotesPluginUiTest extends TestCase
         $this->assertStringContainsString('class="button create btn btn-secondary"', $html);
         $this->assertStringNotContainsString('role="list"', $html);
         $this->assertStringContainsString('aria-current="page"', $html);
-        $this->assertRegExp('/aria-describedby="imap-note-status-note-1-0"/', $html);
+        $this->assertHtmlMatches('/aria-describedby="imap-note-status-note-1-0"/', $html);
         $this->assertStringContainsString('Cleanup pending.', $html);
         $this->assertStringContainsString('aria-label="Selected note"', $html);
         $this->assertStringNotContainsString('aria-label="Selected note Preview text"', $html);
@@ -187,8 +187,8 @@ class ImapNotesPluginUiTest extends TestCase
 
         $html = $plugin->notes_editor([]);
 
-        $this->assertRegExp('/<div class="field-group"><label class="field" for="imap-notes-title-note-1-4"><span>Title<\\/span><\\/label><input class="form-control" id="imap-notes-title-note-1-4"/', $html);
-        $this->assertRegExp('/<div class="field-group grow"><label class="field" for="imap-notes-body-note-1-4"><span>Note<\\/span><\\/label><textarea class="form-control" id="imap-notes-body-note-1-4"/', $html);
+        $this->assertHtmlMatches('/<div class="field-group"><label class="field" for="imap-notes-title-note-1-4"><span>Title<\\/span><\\/label><input class="form-control" id="imap-notes-title-note-1-4"/', $html);
+        $this->assertHtmlMatches('/<div class="field-group grow"><label class="field" for="imap-notes-body-note-1-4"><span>Note<\\/span><\\/label><textarea class="form-control" id="imap-notes-body-note-1-4"/', $html);
         $this->assertStringContainsString('role="alert"', $html);
         $this->assertStringContainsString('role="status"', $html);
         $this->assertStringContainsString('class="main-action btn btn-primary"', $html);
@@ -226,8 +226,8 @@ class ImapNotesPluginUiTest extends TestCase
         $this->assertStringContainsString('readonly="readonly"', $html);
         $this->assertStringContainsString('role="status"', $html);
         $this->assertStringContainsString('role="region"', $html);
-        $this->assertRegExp('/<div class="field-group"><label class="field" for="imap-notes-title-readonly-7"><span>Title<\\/span><\\/label><input class="form-control"/', $html);
-        $this->assertRegExp('/<div class="field-group grow"><label class="field" for="imap-notes-body-readonly-7"><span>Note<\\/span><\\/label><textarea class="form-control"/', $html);
+        $this->assertHtmlMatches('/<div class="field-group"><label class="field" for="imap-notes-title-readonly-7"><span>Title<\\/span><\\/label><input class="form-control"/', $html);
+        $this->assertHtmlMatches('/<div class="field-group grow"><label class="field" for="imap-notes-body-readonly-7"><span>Note<\\/span><\\/label><textarea class="form-control"/', $html);
     }
 
     public function testDeleteActionWithoutConfirmedFlagShowsServerSideConfirmationStep()
@@ -266,6 +266,7 @@ class ImapNotesPluginUiTest extends TestCase
         $this->assertSame(1, $rc->request_security_check_calls);
         $this->assertStringContainsString('Delete this note?', $html);
         $this->assertStringContainsString('name="delete_step" value="confirm"', $html);
+        $this->assertHtmlMatches('/<form class="note-delete-form" method="post" action="\\?task=imap_notes&amp;action=delete" data-confirm="Delete this note\\?">.*<div class="imap-notes-banner warning imap-notes-delete-confirmation" role="alert" aria-live="assertive" aria-atomic="true">Delete this note\\?<\\/div>.*class="delete-button btn btn-danger">Confirm delete<\\/button>/s', $html);
         $this->assertStringContainsString('class="delete-button btn btn-danger">Confirm delete</button>', $html);
         $this->assertStringContainsString('class="button btn btn-secondary"', $html);
     }
@@ -285,6 +286,16 @@ class ImapNotesPluginUiTest extends TestCase
         $reflection = new ReflectionProperty($object, $property);
         $reflection->setAccessible(true);
         $reflection->setValue($object, $value);
+    }
+
+    private function assertHtmlMatches($pattern, $subject)
+    {
+        if (method_exists($this, 'assertMatchesRegularExpression')) {
+            $this->assertMatchesRegularExpression($pattern, $subject);
+            return;
+        }
+
+        $this->assertThat($subject, new PHPUnit\Framework\Constraint\RegularExpression($pattern));
     }
 
     private function getPrivate($object, $property)

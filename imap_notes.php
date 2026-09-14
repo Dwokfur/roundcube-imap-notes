@@ -233,13 +233,9 @@ class imap_notes extends rcube_plugin
             $out .= '<div class="imap-notes-banner info" role="status" aria-live="polite" aria-atomic="true">' . $this->escape($this->gettext('revisioncleanuppending')) . '</div>';
         }
 
-        if ($confirm_delete) {
-            $out .= '<div class="imap-notes-banner warning" role="alert" aria-live="assertive" aria-atomic="true">' . $this->escape($this->gettext('deleteconfirm')) . '</div>';
-        }
-
         $out .= '<form class="note-form" method="post" action="' . $this->escape($save_url) . '">';
         $out .= $this->hidden('_token', $token);
-        foreach (['note_key', 'mailbox', 'uid', 'uidvalidity', 'logical_uuid', 'message_id', 'updated_at', 'created_at', 'fingerprint'] as $field) {
+        foreach (['note_key', 'mailbox', 'uid', 'uidvalidity', 'logical_uuid', 'message_id', 'updated_at', 'created_at', 'fingerprint', 'plugin_managed', 'legacy_apple'] as $field) {
             $out .= $this->hidden($field, $note[$field] ?? '');
         }
         $out .= $this->hidden('read_only', $read_only ? '1' : '0');
@@ -267,6 +263,7 @@ class imap_notes extends rcube_plugin
             }
             $out .= $this->hidden('delete_step', $confirm_delete ? 'confirm' : 'prompt');
             if ($confirm_delete) {
+                $out .= '<div class="imap-notes-banner warning imap-notes-delete-confirmation" role="alert" aria-live="assertive" aria-atomic="true">' . $this->escape($this->gettext('deleteconfirm')) . '</div>';
                 $out .= '<button type="submit" class="delete-button btn btn-danger">' . $this->escape($this->gettext('confirmdelete')) . '</button>';
                 $out .= '<a class="button btn btn-secondary" href="' . $this->escape($cancel_delete_url) . '">' . $this->escape($this->gettext('canceldelete')) . '</a>';
             } else {

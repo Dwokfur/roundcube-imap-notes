@@ -405,7 +405,7 @@ class ImapNotesRoundcubeStorage implements ImapNotesStorageInterface
             $subject,
             $body_text,
             $plugin_managed || $legacy_apple,
-            $plugin_managed
+            $plugin_managed || $legacy_apple
         );
         if ($created_at === '') {
             $created_at = (string) ($message->headers->internaldate ?? '');
