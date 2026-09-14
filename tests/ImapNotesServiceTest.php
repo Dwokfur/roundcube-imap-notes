@@ -144,6 +144,28 @@ class ImapNotesServiceTest extends TestCase
         $this->assertArrayNotHasKey('modseq', $note);
     }
 
+    public function testViewReturnsBlankNoteForExplicitNewModeEvenWhenNotesExist()
+    {
+        $service = $this->buildService(['status' => 'ok']);
+
+        $view = $service->view(null, true);
+
+        $this->assertCount(1, $view['notes']);
+        $this->assertSame('', $view['selected']['note_key']);
+        $this->assertSame('', $view['selected']['title']);
+        $this->assertSame('', $view['selected']['body_text']);
+    }
+
+    public function testViewPrefersExplicitSelectedNoteOverNewMode()
+    {
+        $service = $this->buildService(['status' => 'ok']);
+
+        $view = $service->view('saved-note', true);
+
+        $this->assertSame('saved-note', $view['selected']['note_key']);
+        $this->assertSame('Saved', $view['selected']['title']);
+    }
+
     public function testRequestCannotOverrideServerDerivedFromIdentity()
     {
         $storage = new ImapNotesServiceTestStorage(['status' => 'ok']);
@@ -361,7 +383,7 @@ class ImapNotesServiceTest extends TestCase
         $this->assertSame("Próba\n\nEz egy próba jegyzet", $result['selected']['body_text']);
     }
 
-    public function testRepeatedCompatibleSaveReloadCyclesKeepEditorBodyStableWithoutTitleChanges()
+    public function testNewCompatibleNoteRemainsBlankUntilSaveThenKeepsEditorBodyStableAcrossFourSaveReloadCycles()
     {
         $storage = new ImapNotesRoundTripServiceTestStorage();
         $service = new ImapNotesService(
@@ -375,15 +397,22 @@ class ImapNotesServiceTest extends TestCase
         $title = 'Próba';
         $body = 'Ez egy próba jegyzet';
 
+        $blank = $service->view(null, true)['selected'];
+        $this->assertSame('', $blank['title']);
+        $this->assertSame('', $blank['body_text']);
+
         $result = $service->save([
             'title' => $title,
             'body' => $body,
         ], 'Untitled note');
 
-        for ($i = 0; $i < 3; $i++) {
+        $this->assertSame('saved', $result['status']);
+
+        for ($i = 0; $i < 4; $i++) {
             $loaded = $service->view($result['selected']['note_key'])['selected'];
             $this->assertSame($body, $loaded['body_text']);
             $this->assertSame(1, substr_count($storage->last_append['html'], '<p>Próba</p>'));
+            $this->assertSame($title . "\n\n" . $body, $storage->persistedStorageText());
 
             $result = $service->save([
                 'note_key' => $loaded['note_key'],
@@ -404,6 +433,7 @@ class ImapNotesServiceTest extends TestCase
             $this->assertSame('saved', $result['status']);
             $this->assertSame($body, $result['selected']['body_text']);
             $this->assertSame(1, substr_count($storage->last_append['html'], '<p>Próba</p>'));
+            $this->assertSame($title . "\n\n" . $body, $storage->persistedStorageText());
         }
     }
 
@@ -576,25 +606,35 @@ class ImapNotesRoundTripServiceTestStorage implements ImapNotesStorageInterface
 {
     public $last_append;
     private $content;
+    private $message_factory;
+    private $persisted_message;
     private $persisted_note;
+    private $persisted_storage_text = '';
 
     public function __construct(array $seed = [])
     {
         $this->content = new ImapNotesContent();
+        $this->message_factory = new ImapNotesMessage();
         if (!empty($seed)) {
             $title = $seed['title'] ?? 'Próba';
             $storage_text = $seed['storage_text'] ?? $title;
             $html = $this->content->textToSafeHtml($storage_text);
-            $this->persisted_note = $this->buildPersistedNote([
-                'subject' => $title,
-                'html' => $html,
-                'logical_uuid' => '11111111-1111-4111-8111-111111111111',
-                'message_id' => '<saved@example.invalid>',
-                'updated_at' => '2026-09-12T13:05:00Z',
-                'created_at' => 'Sat, 12 Sep 2026 13:05:00 +0000',
-                'plugin_managed' => !empty($seed['plugin_managed']),
-                'legacy_apple' => !empty($seed['legacy_apple']),
-            ]);
+            $message = $this->message_factory->createRevision(
+                '11111111-1111-4111-8111-111111111111',
+                $title,
+                $html,
+                'Tester <tester@example.test>',
+                new DateTimeImmutable('2026-09-12T13:05:00Z'),
+                new DateTimeImmutable('2026-09-12T13:05:00Z')
+            );
+            if (empty($seed['plugin_managed'])) {
+                $message['raw'] = preg_replace("/^X-Roundcube-Note-Version:.*\r\n/m", '', $message['raw']);
+            }
+            if (empty($seed['legacy_apple'])) {
+                $message['raw'] = preg_replace("/^X-Uniform-Type-Identifier:.*\r\n/m", '', $message['raw']);
+            }
+            $this->persisted_message = $message;
+            $this->persisted_note = $this->buildPersistedNote($message);
         }
     }
 
@@ -614,7 +654,7 @@ class ImapNotesRoundTripServiceTestStorage implements ImapNotesStorageInterface
             return null;
         }
 
-        $loaded = $this->buildPersistedNote($this->last_append ?: $this->persisted_note);
+        $loaded = $this->buildPersistedNote($this->last_append ?: $this->persisted_message);
         $this->persisted_note = $loaded;
 
         return $loaded;
@@ -635,6 +675,7 @@ class ImapNotesRoundTripServiceTestStorage implements ImapNotesStorageInterface
             'plugin_managed' => true,
             'legacy_apple' => true,
         ];
+        $this->persisted_message = $this->last_append;
         $this->persisted_note = $this->buildPersistedNote($this->last_append);
 
         return [
@@ -668,40 +709,74 @@ class ImapNotesRoundTripServiceTestStorage implements ImapNotesStorageInterface
 
     private function buildPersistedNote(array $message)
     {
-        $title = $message['subject'] ?? $message['title'] ?? 'Saved';
-        $html = $message['html'] ?? '<html><body><p>Body</p></body></html>';
-        $compatible = !empty($message['plugin_managed']) || !empty($message['legacy_apple']);
-        $body_text = array_key_exists('body_text', $message)
-            ? $message['body_text']
-            : $this->content->normalizeImportedEditableBody(
-                $title,
-                $this->content->htmlToText($html),
-                $compatible,
-                $compatible
-            );
+        $raw = (string) ($message['raw'] ?? '');
+        $parsed = $raw !== '' ? $this->message_factory->parseRawMessage($raw) : ['headers' => [], 'body' => ''];
+        $headers = $parsed['headers'];
+        $title = $headers ? $this->decodeHeaderValue((string) ($headers['subject'] ?? '')) : ($message['subject'] ?? $message['title'] ?? 'Saved');
+        $encoded_html = $headers ? (string) ($parsed['body'] ?? '') : '';
+        $html = $headers
+            ? $this->decodeTransferBody($encoded_html, (string) ($headers['content-transfer-encoding'] ?? ''))
+            : ($message['html'] ?? '<html><body><p>Body</p></body></html>');
+        $body_text = $this->content->htmlToText($html);
+        $plugin_managed = (string) ($headers['x-roundcube-note-version'] ?? '') !== '';
+        $legacy_apple = strtolower((string) ($headers['x-uniform-type-identifier'] ?? '')) === 'com.apple.mail-note';
+        $eligible_for_title_strip = $plugin_managed || $legacy_apple;
+        $collapse_repeated_prefixes = $plugin_managed || $legacy_apple;
+        $body_text = $this->content->normalizeImportedEditableBody(
+            $title,
+            $body_text,
+            $eligible_for_title_strip,
+            $collapse_repeated_prefixes
+        );
+        $this->persisted_storage_text = $this->content->htmlToText($html);
 
         return [
             'note_key' => 'saved-note',
             'mailbox' => 'Notes',
             'uid' => '2',
             'uidvalidity' => '22',
-            'logical_uuid' => $message['logical_uuid'] ?? '11111111-1111-4111-8111-111111111111',
-            'message_id' => $message['message_id'] ?? '<saved@example.invalid>',
-            'updated_at' => $message['updated_at'] ?? '2026-09-12T13:05:00Z',
-            'created_at' => $message['created_at'] ?? 'Sat, 12 Sep 2026 13:05:00 +0000',
+            'logical_uuid' => trim((string) ($headers['x-universally-unique-identifier'] ?? ($message['logical_uuid'] ?? '11111111-1111-4111-8111-111111111111'))),
+            'message_id' => (string) ($headers['message-id'] ?? ($message['message_id'] ?? '<saved@example.invalid>')),
+            'updated_at' => (string) ($headers['x-roundcube-note-updated'] ?? ($message['updated_at'] ?? '2026-09-12T13:05:00Z')),
+            'created_at' => (string) ($headers['x-mail-created-date'] ?? ($message['created_at'] ?? 'Sat, 12 Sep 2026 13:05:00 +0000')),
             'title' => $title,
             'preview' => $this->content->previewText($body_text),
             'body_text' => $body_text,
-            'body_html' => $html,
+            'body_html' => $this->content->sanitizeHtml($html),
             'fingerprint' => $this->content->fingerprint($title, $body_text),
             'read_only' => false,
             'read_only_reason' => '',
             'cleanup_pending' => false,
             'cleanup_pending_target_uid' => '',
-            'plugin_managed' => !empty($message['plugin_managed']),
-            'legacy_apple' => !empty($message['legacy_apple']),
+            'plugin_managed' => $plugin_managed,
+            'legacy_apple' => $legacy_apple,
             'imported' => false,
         ];
+    }
+
+    public function persistedStorageText()
+    {
+        return $this->persisted_storage_text;
+    }
+
+    private function decodeTransferBody($body, $encoding)
+    {
+        $encoding = strtolower(trim($encoding));
+        if ($encoding === 'quoted-printable') {
+            return quoted_printable_decode($body);
+        }
+        if ($encoding === 'base64') {
+            $decoded = base64_decode($body, true);
+
+            return $decoded === false ? $body : $decoded;
+        }
+
+        return $body;
+    }
+
+    private function decodeHeaderValue($value)
+    {
+        return function_exists('mb_decode_mimeheader') ? mb_decode_mimeheader($value) : $value;
     }
 }
 

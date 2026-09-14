@@ -66,7 +66,10 @@ class imap_notes extends rcube_plugin
     public function action_index()
     {
         try {
-            $this->view_data = $this->service->view(rcube_utils::get_input_string('_note', rcube_utils::INPUT_GPC));
+            $this->view_data = $this->service->view(
+                rcube_utils::get_input_string('_note', rcube_utils::INPUT_GPC),
+                rcube_utils::get_input_string('_new', rcube_utils::INPUT_GET) === '1'
+            );
         } catch (Exception $e) {
             $this->view_data = $this->fallbackViewData();
             $this->rc->output->command('display_message', $this->localizeError($e->getMessage()), 'error');
@@ -84,7 +87,7 @@ class imap_notes extends rcube_plugin
                 $view['selected'] = $result['selected'];
             } else {
                 $view = $this->service->view($result['selected']['note_key'] ?? null);
-                $view['selected'] = array_merge($view['selected'], $result['selected'] ?? []);
+                $view['selected'] = $this->mergePostSaveSelection($view['selected'], $result['selected'] ?? []);
             }
             if (!empty($result['conflict'])) {
                 $view['conflict'] = $result['conflict'];
@@ -151,7 +154,7 @@ class imap_notes extends rcube_plugin
     {
         $out = '<div class="imap-notes-sidebar">';
         $out .= '<div class="imap-notes-folder">' . $this->escape($this->view_data['folder']) . '</div>';
-        $out .= '<a class="button create btn btn-secondary" href="' . $this->escape($this->rc->url(['task' => 'imap_notes', 'action' => 'index'])) . '">' . $this->escape($this->gettext('newnote')) . '</a>';
+        $out .= '<a class="button create btn btn-secondary" href="' . $this->escape($this->rc->url(['task' => 'imap_notes', 'action' => 'index', '_new' => 1])) . '">' . $this->escape($this->gettext('newnote')) . '</a>';
         $out .= '<ul class="listing imap-notes-list">';
 
         $selected_key = $this->view_data['selected']['note_key'] ?? '';
@@ -301,6 +304,17 @@ class imap_notes extends rcube_plugin
     private function hidden($name, $value)
     {
         return '<input type="hidden" name="' . $this->escape($name) . '" value="' . htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5, 'UTF-8') . '" />';
+    }
+
+    private function mergePostSaveSelection(array $reloaded, array $saved)
+    {
+        foreach (['cleanup_pending', 'cleanup_pending_target_uid'] as $field) {
+            if (array_key_exists($field, $saved)) {
+                $reloaded[$field] = $saved[$field];
+            }
+        }
+
+        return $reloaded;
     }
 
     private function escape($value)

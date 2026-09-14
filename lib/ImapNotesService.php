@@ -25,7 +25,7 @@ class ImapNotesService
         $this->identity_resolver = $identity_resolver;
     }
 
-    public function view($selected_key = null)
+    public function view($selected_key = null, $new_note = false)
     {
         $folder = $this->storage->ensureFolder();
         $resolved = $this->resolver->selectDisplayNotes($this->storage->listRevisions($folder));
@@ -34,6 +34,10 @@ class ImapNotesService
 
         if ($selected_key) {
             $selected = $this->storage->loadRevision($folder, $selected_key);
+        }
+
+        if (!$selected && $new_note) {
+            $selected = $this->blankNote($folder);
         }
 
         if (!$selected && !empty($notes)) {

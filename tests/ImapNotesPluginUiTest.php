@@ -77,10 +77,28 @@ if (!class_exists('rcube_utils')) {
     class rcube_utils
     {
         const INPUT_GPC = 0;
+        const INPUT_GET = 1;
+        const INPUT_POST = 2;
 
         public static function get_input_string($name, $source)
         {
-            return isset($_POST[$name]) ? (string) $_POST[$name] : '';
+            if ($source === self::INPUT_GET) {
+                return isset($_GET[$name]) ? (string) $_GET[$name] : '';
+            }
+
+            if ($source === self::INPUT_POST) {
+                return isset($_POST[$name]) ? (string) $_POST[$name] : '';
+            }
+
+            if (isset($_POST[$name])) {
+                return (string) $_POST[$name];
+            }
+
+            if (isset($_GET[$name])) {
+                return (string) $_GET[$name];
+            }
+
+            return '';
         }
     }
 }
@@ -105,6 +123,7 @@ class ImapNotesPluginUiTest extends TestCase
             'canceldelete' => 'Cancel',
             'deleteconfirm' => 'Delete this note?',
         ];
+        $_GET = [];
         $_POST = [];
     }
 
@@ -158,12 +177,93 @@ class ImapNotesPluginUiTest extends TestCase
         $html = $plugin->notes_list([]);
 
         $this->assertStringContainsString('class="button create btn btn-secondary"', $html);
+        $this->assertStringContainsString('?task=imap_notes&amp;action=index&amp;_new=1', $html);
         $this->assertStringNotContainsString('role="list"', $html);
         $this->assertStringContainsString('aria-current="page"', $html);
         $this->assertHtmlMatches('/aria-describedby="imap-note-status-note-1-0"/', $html);
         $this->assertStringContainsString('Cleanup pending.', $html);
         $this->assertStringContainsString('aria-label="Selected note"', $html);
         $this->assertStringNotContainsString('aria-label="Selected note Preview text"', $html);
+    }
+
+    public function testActionIndexPassesExplicitNewNoteModeToService()
+    {
+        $plugin = new imap_notes();
+        $rc = new ImapNotesPluginUiTestFakeRcmail();
+        $service = new ImapNotesPluginUiTestFakeService([
+            'folder' => 'Notes',
+            'notes' => [['note_key' => 'note-1', 'title' => 'Existing', 'preview' => 'Existing preview']],
+            'selected' => ['note_key' => '', 'mailbox' => 'Notes', 'title' => '', 'body_text' => ''],
+        ]);
+
+        $this->setPrivate($plugin, 'rc', $rc);
+        $this->setPrivate($plugin, 'content', new ImapNotesContent());
+        $this->setPrivate($plugin, 'service', $service);
+
+        $_GET = ['_new' => '1'];
+        $plugin->action_index();
+
+        $this->assertSame([['note_key' => '', 'new_note' => true]], $service->view_calls);
+    }
+
+    public function testActionSaveKeepsReloadedCleanBodyInsteadOfStaleSavedSelectionBody()
+    {
+        $plugin = new imap_notes();
+        $rc = new ImapNotesPluginUiTestFakeRcmail();
+        $service = new ImapNotesPluginUiTestFakeService([
+            'folder' => 'Notes',
+            'notes' => [['note_key' => 'saved-note', 'title' => 'Próba', 'preview' => 'Ez egy próba jegyzet']],
+            'selected' => [
+                'note_key' => 'saved-note',
+                'mailbox' => 'Notes',
+                'uid' => '2',
+                'uidvalidity' => '22',
+                'logical_uuid' => '11111111-1111-4111-8111-111111111111',
+                'message_id' => '<saved@example.invalid>',
+                'updated_at' => '2026-09-12T13:05:00Z',
+                'created_at' => 'Sat, 12 Sep 2026 13:05:00 +0000',
+                'title' => 'Próba',
+                'preview' => 'Ez egy próba jegyzet',
+                'body_text' => 'Ez egy próba jegyzet',
+                'body_html' => '<html><body><p>Próba</p><p>Ez egy próba jegyzet</p></body></html>',
+                'cleanup_pending' => false,
+                'cleanup_pending_target_uid' => '',
+            ],
+        ]);
+        $service->save_result = [
+            'status' => 'saved',
+            'selected' => [
+                'note_key' => 'saved-note',
+                'mailbox' => 'Notes',
+                'uid' => '2',
+                'uidvalidity' => '22',
+                'logical_uuid' => '11111111-1111-4111-8111-111111111111',
+                'message_id' => '<saved@example.invalid>',
+                'updated_at' => '2026-09-12T13:05:00Z',
+                'created_at' => 'Sat, 12 Sep 2026 13:05:00 +0000',
+                'title' => 'Próba',
+                'preview' => 'Próba Ez egy próba jegyzet',
+                'body_text' => "Próba\n\nEz egy próba jegyzet",
+                'body_html' => '<html><body><p>Próba</p><p>Próba</p><p>Ez egy próba jegyzet</p></body></html>',
+                'cleanup_pending' => true,
+                'cleanup_pending_target_uid' => '1',
+            ],
+        ];
+
+        $this->setPrivate($plugin, 'rc', $rc);
+        $this->setPrivate($plugin, 'content', new ImapNotesContent());
+        $this->setPrivate($plugin, 'service', $service);
+
+        $_POST = ['title' => 'Próba', 'body' => 'Ez egy próba jegyzet'];
+        $plugin->action_save();
+
+        $view_data = $this->getPrivate($plugin, 'view_data');
+        $this->assertSame('Ez egy próba jegyzet', $view_data['selected']['body_text']);
+        $this->assertTrue($view_data['selected']['cleanup_pending']);
+        $this->assertSame('1', $view_data['selected']['cleanup_pending_target_uid']);
+        $this->assertSame(1, $service->save_calls);
+        $this->assertSame([['post' => $_POST, 'fallback_title' => 'untitlednote']], $service->save_arguments);
+        $this->assertSame([['note_key' => 'saved-note', 'new_note' => false]], $service->view_calls);
     }
 
     public function testNotesEditorAssociatesLabelsAndAddsAlertStatusAndDeleteConfirmation()
@@ -259,7 +359,7 @@ class ImapNotesPluginUiTest extends TestCase
         $view_data = $this->getPrivate($plugin, 'view_data');
         $html = $plugin->notes_editor([]);
 
-        $this->assertSame(['note-1'], $service->view_calls);
+        $this->assertSame([['note_key' => 'note-1', 'new_note' => false]], $service->view_calls);
         $this->assertSame(0, $service->delete_calls);
         $this->assertTrue($view_data['confirm_delete']);
         $this->assertSame('imap_notes.notes', $rc->output->sent_template);
@@ -369,6 +469,12 @@ class ImapNotesPluginUiTestFakeService
 {
     public $view_calls = [];
     public $delete_calls = 0;
+    public $save_calls = 0;
+    public $save_arguments = [];
+    public $save_result = [
+        'status' => 'saved',
+        'selected' => ['note_key' => 'saved-note'],
+    ];
     private $view_result;
 
     public function __construct(array $view_result)
@@ -376,11 +482,19 @@ class ImapNotesPluginUiTestFakeService
         $this->view_result = $view_result;
     }
 
-    public function view($note_key = null)
+    public function view($note_key = null, $new_note = false)
     {
-        $this->view_calls[] = $note_key;
+        $this->view_calls[] = ['note_key' => $note_key, 'new_note' => $new_note];
 
         return $this->view_result;
+    }
+
+    public function save(array $post, $fallback_title)
+    {
+        $this->save_calls++;
+        $this->save_arguments[] = ['post' => $post, 'fallback_title' => $fallback_title];
+
+        return $this->save_result;
     }
 
     public function delete(array $post)
