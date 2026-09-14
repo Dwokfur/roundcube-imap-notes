@@ -80,6 +80,10 @@ if (!class_exists('rcube_utils')) {
 
         public static function get_input_string($name, $source)
         {
+            if (isset($_GET[$name])) {
+                return (string) $_GET[$name];
+            }
+
             return isset($_POST[$name]) ? (string) $_POST[$name] : '';
         }
     }
@@ -105,6 +109,7 @@ class ImapNotesPluginUiTest extends TestCase
             'canceldelete' => 'Cancel',
             'deleteconfirm' => 'Delete this note?',
         ];
+        $_GET = [];
         $_POST = [];
     }
 
@@ -181,7 +186,7 @@ class ImapNotesPluginUiTest extends TestCase
         $this->setPrivate($plugin, 'content', new ImapNotesContent());
         $this->setPrivate($plugin, 'service', $service);
 
-        $_POST = ['_new' => '1'];
+        $_GET = ['_new' => '1'];
         $plugin->action_index();
 
         $this->assertSame([['note_key' => '', 'new_note' => true]], $service->view_calls);
