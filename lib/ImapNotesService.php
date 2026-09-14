@@ -90,8 +90,8 @@ class ImapNotesService
         $logical_uuid = !empty($state['logical_uuid']) && empty($decision['copy'])
             ? $state['logical_uuid']
             : ImapNotesMessage::uuidV4();
-        if ($this->submittedBodyStartsWithTitle($title, $body) && $this->shouldNormalizeCompatibleBody($state, $conflict_state['current'] ?? null)) {
-            $body = $this->content->normalizeImportedEditableBody($title, $body, false, true);
+        if ($this->submittedBodyStartsWithTitle($title, $body) && $this->shouldNormalizeCompatibleBody($conflict_state['current'] ?? null)) {
+            $body = $this->content->normalizeImportedEditableBody($title, $body, true, true);
         }
         $storage_text = $this->content->composeStorageBodyText($title, $body);
         $html = $this->content->textToSafeHtml($storage_text);
@@ -292,11 +292,9 @@ class ImapNotesService
         }
     }
 
-    private function shouldNormalizeCompatibleBody(array $submitted_state, $note)
+    private function shouldNormalizeCompatibleBody($note)
     {
-        return !empty($submitted_state['plugin_managed'])
-            || !empty($submitted_state['legacy_apple'])
-            || (!empty($note) && (!empty($note['plugin_managed']) || !empty($note['legacy_apple'])));
+        return !empty($note) && (!empty($note['plugin_managed']) || !empty($note['legacy_apple']));
     }
 
     private function submittedBodyStartsWithTitle($title, $body)
