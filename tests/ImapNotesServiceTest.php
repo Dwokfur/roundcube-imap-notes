@@ -712,7 +712,7 @@ class ImapNotesRoundTripServiceTestStorage implements ImapNotesStorageInterface
         $raw = (string) ($message['raw'] ?? '');
         $parsed = $raw !== '' ? $this->message_factory->parseRawMessage($raw) : ['headers' => [], 'body' => ''];
         $headers = $parsed['headers'];
-        $title = $headers ? mb_decode_mimeheader((string) ($headers['subject'] ?? '')) : ($message['subject'] ?? $message['title'] ?? 'Saved');
+        $title = $headers ? $this->decodeHeaderValue((string) ($headers['subject'] ?? '')) : ($message['subject'] ?? $message['title'] ?? 'Saved');
         $encoded_html = $headers ? (string) ($parsed['body'] ?? '') : '';
         $html = $headers
             ? $this->decodeTransferBody($encoded_html, (string) ($headers['content-transfer-encoding'] ?? ''))
@@ -772,6 +772,11 @@ class ImapNotesRoundTripServiceTestStorage implements ImapNotesStorageInterface
         }
 
         return $body;
+    }
+
+    private function decodeHeaderValue($value)
+    {
+        return function_exists('mb_decode_mimeheader') ? mb_decode_mimeheader($value) : $value;
     }
 }
 
