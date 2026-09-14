@@ -718,13 +718,15 @@ class ImapNotesRoundTripServiceTestStorage implements ImapNotesStorageInterface
             ? quoted_printable_decode($encoded_html)
             : ($headers ? $encoded_html : ($message['html'] ?? '<html><body><p>Body</p></body></html>'));
         $body_text = $this->content->htmlToText($html);
-        $compatible = ((string) ($headers['x-roundcube-note-version'] ?? '') !== '')
-            || (strtolower((string) ($headers['x-uniform-type-identifier'] ?? '')) === 'com.apple.mail-note');
+        $plugin_managed = (string) ($headers['x-roundcube-note-version'] ?? '') !== '';
+        $legacy_apple = strtolower((string) ($headers['x-uniform-type-identifier'] ?? '')) === 'com.apple.mail-note';
+        $eligible_for_title_strip = $plugin_managed || $legacy_apple;
+        $collapse_repeated_prefixes = $plugin_managed || $legacy_apple;
         $body_text = $this->content->normalizeImportedEditableBody(
             $title,
             $body_text,
-            $compatible,
-            $compatible
+            $eligible_for_title_strip,
+            $collapse_repeated_prefixes
         );
         $this->persisted_storage_text = $this->content->htmlToText($html);
 
@@ -746,8 +748,8 @@ class ImapNotesRoundTripServiceTestStorage implements ImapNotesStorageInterface
             'read_only_reason' => '',
             'cleanup_pending' => false,
             'cleanup_pending_target_uid' => '',
-            'plugin_managed' => (string) ($headers['x-roundcube-note-version'] ?? '') !== '',
-            'legacy_apple' => strtolower((string) ($headers['x-uniform-type-identifier'] ?? '')) === 'com.apple.mail-note',
+            'plugin_managed' => $plugin_managed,
+            'legacy_apple' => $legacy_apple,
             'imported' => false,
         ];
     }
