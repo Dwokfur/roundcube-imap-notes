@@ -94,7 +94,7 @@ class ImapNotesService
         $logical_uuid = !empty($state['logical_uuid']) && empty($decision['copy'])
             ? $state['logical_uuid']
             : ImapNotesMessage::uuidV4();
-        $compatible_current = $this->compatibleCurrentNote($folder, $state, $conflict_state);
+        $compatible_current = $this->compatibleCurrentNote($folder, $state, $conflict_state, $title, $body);
         if ($this->shouldNormalizeCompatibleBody($compatible_current)) {
             $body = $this->content->normalizeImportedEditableBody((string) ($compatible_current['title'] ?? $title), $body, true, true);
         }
@@ -297,17 +297,49 @@ class ImapNotesService
         }
     }
 
-    private function compatibleCurrentNote($folder, array $state, array $conflict_state)
+    private function compatibleCurrentNote($folder, array $state, array $conflict_state, $title, $body)
     {
         if (!empty($conflict_state['current'])) {
             return $conflict_state['current'];
         }
 
-        if (empty($state['note_key'])) {
+        if (
+            empty($state['note_key'])
+            || (
+                empty($state['plugin_managed'])
+                && empty($state['legacy_apple'])
+                && !$this->hasCanonicalTitlePrefix($title, $body)
+            )
+        ) {
             return null;
         }
 
         return $this->storage->loadRevision($folder, $state['note_key']);
+    }
+
+    private function hasCanonicalTitlePrefix($title, $body)
+    {
+        $title = trim(preg_replace('/\s+/u', ' ', $this->content->normalizePlainText($title)));
+        if ($title === '') {
+            return false;
+        }
+
+        $lines = preg_split('/\n/', $this->content->normalizePlainText($body));
+        $first_index = null;
+        foreach ($lines as $index => $line) {
+            if (trim($line) !== '') {
+                $first_index = $index;
+                break;
+            }
+        }
+
+        if ($first_index === null || !isset($lines[$first_index + 1])) {
+            return false;
+        }
+
+        $first_line = trim(preg_replace('/\s+/u', ' ', $lines[$first_index]));
+
+        return $first_line === $title && trim($lines[$first_index + 1]) === '';
     }
 
     private function shouldNormalizeCompatibleBody($note)
