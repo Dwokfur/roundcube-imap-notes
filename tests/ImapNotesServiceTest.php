@@ -383,6 +383,45 @@ class ImapNotesServiceTest extends TestCase
         $this->assertSame("Próba\n\nEz egy próba jegyzet", $result['selected']['body_text']);
     }
 
+    public function testSaveUsesServerLoadedCompatibleRevisionWhenConflictCheckOmitsCurrent()
+    {
+        $existing_note = [
+            'note_key' => 'current-note',
+            'uid' => '4',
+            'mailbox' => 'Notes',
+            'title' => 'próba jegyzet',
+            'body_text' => 'Tartalom',
+            'plugin_managed' => true,
+            'legacy_apple' => true,
+            'read_only' => false,
+        ];
+        $storage = new ImapNotesServiceTestStorage([
+            'status' => 'ok',
+            'loaded_revision' => $existing_note,
+        ]);
+        $storage->saved_note_exists = false;
+        $service = new ImapNotesService(
+            $storage,
+            new ImapNotesContent(),
+            new ImapNotesMessage(),
+            new ImapNotesRevisionResolver(),
+            new ImapNotesConflictResolver(),
+            new ImapNotesServiceTestIdentityResolver('Tester <tester@example.test>')
+        );
+
+        $result = $service->save([
+            'note_key' => 'current-note',
+            'mailbox' => 'Notes',
+            'title' => 'próba jegyzet',
+            'body' => "próba jegyzet\n\npróba jegyzet\n\npróba jegyzet\n\nTartalom",
+        ], 'Untitled note');
+
+        $this->assertSame('saved', $result['status']);
+        $this->assertSame(1, substr_count($storage->last_append['html'], '<p>próba jegyzet</p>'));
+        $this->assertStringContainsString('<p>Tartalom</p>', $storage->last_append['html']);
+        $this->assertSame('Tartalom', $result['selected']['body_text']);
+    }
+
     public function testNewCompatibleNoteRemainsBlankUntilSaveThenKeepsEditorBodyStableAcrossFourSaveReloadCycles()
     {
         $storage = new ImapNotesRoundTripServiceTestStorage();
@@ -394,8 +433,8 @@ class ImapNotesServiceTest extends TestCase
             new ImapNotesConflictResolver(),
             new ImapNotesServiceTestIdentityResolver('Tester <tester@example.test>')
         );
-        $title = 'Próba';
-        $body = 'Ez egy próba jegyzet';
+        $title = 'próba jegyzet';
+        $body = 'Tartalom';
 
         $blank = $service->view(null, true)['selected'];
         $this->assertSame('', $blank['title']);
@@ -411,7 +450,8 @@ class ImapNotesServiceTest extends TestCase
         for ($i = 0; $i < 4; $i++) {
             $loaded = $service->view($result['selected']['note_key'])['selected'];
             $this->assertSame($body, $loaded['body_text']);
-            $this->assertSame(1, substr_count($storage->last_append['html'], '<p>Próba</p>'));
+            $this->assertSame(1, substr_count($storage->last_append['html'], '<p>próba jegyzet</p>'));
+            $this->assertStringContainsString('<p>Tartalom</p>', $storage->last_append['html']);
             $this->assertSame($title . "\n\n" . $body, $storage->persistedStorageText());
 
             $result = $service->save([
@@ -432,18 +472,31 @@ class ImapNotesServiceTest extends TestCase
 
             $this->assertSame('saved', $result['status']);
             $this->assertSame($body, $result['selected']['body_text']);
-            $this->assertSame(1, substr_count($storage->last_append['html'], '<p>Próba</p>'));
+            $this->assertSame(1, substr_count($storage->last_append['html'], '<p>próba jegyzet</p>'));
+            $this->assertStringContainsString('<p>Tartalom</p>', $storage->last_append['html']);
             $this->assertSame($title . "\n\n" . $body, $storage->persistedStorageText());
         }
     }
 
-    public function testCompatibleRoundTripSaveRepairsStoredRepeatedTitlePrefixes()
+    public function testCompatibleRoundTripSaveRepairsExactQuotedPrintableFixture()
     {
         $storage = new ImapNotesRoundTripServiceTestStorage([
-            'title' => 'Próba',
-            'storage_text' => "Próba\n\nPróba\n\nPróba\n\nEz egy próba jegyzet",
-            'plugin_managed' => true,
-            'legacy_apple' => true,
+            'raw' => "From: Redacted <redacted@example.invalid>\r\n"
+                . "Date: Mon, 14 Sep 2026 11:00:13 +0000\r\n"
+                . "Message-ID: <redacted@roundcube-imap-notes.invalid>\r\n"
+                . "Subject: =?UTF-8?Q?pr=C3=B3ba=20jegyzet?=\r\n"
+                . "MIME-Version: 1.0\r\n"
+                . "Content-Type: text/html; charset=UTF-8\r\n"
+                . "Content-Transfer-Encoding: quoted-printable\r\n"
+                . "X-Uniform-Type-Identifier: com.apple.mail-note\r\n"
+                . "X-Universally-Unique-Identifier: 00000000-0000-4000-8000-000000000000\r\n"
+                . "X-Mail-Created-Date: Mon, 14 Sep 2026 11:00:12 +0000\r\n"
+                . "X-Roundcube-Note-Version: 1\r\n"
+                . "X-Roundcube-Note-Updated: 2026-09-14T11:00:13Z\r\n"
+                . "\r\n"
+                . "<html><body>=0A<p>pr=C3=B3ba jegyzet</p>=0A<p>pr=C3=B3ba jegyzet</p>=0A<p>p=\r\n"
+                . "r=C3=B3ba jegyzet</p>=0A<p>pr=C3=B3ba jegyzet</p>=0A<p>Tartalom</p>=0A</bod=\r\n"
+                . "y></html>",
         ]);
         $service = new ImapNotesService(
             $storage,
@@ -455,7 +508,8 @@ class ImapNotesServiceTest extends TestCase
         );
 
         $loaded = $service->view('saved-note')['selected'];
-        $this->assertSame('Ez egy próba jegyzet', $loaded['body_text']);
+        $this->assertSame('próba jegyzet', $loaded['title']);
+        $this->assertSame('Tartalom', $loaded['body_text']);
 
         $result = $service->save([
             'note_key' => $loaded['note_key'],
@@ -472,9 +526,9 @@ class ImapNotesServiceTest extends TestCase
         ], 'Untitled note');
 
         $this->assertSame('saved', $result['status']);
-        $this->assertSame('Ez egy próba jegyzet', $result['selected']['body_text']);
-        $this->assertSame(1, substr_count($storage->last_append['html'], '<p>Próba</p>'));
-        $this->assertStringContainsString('<p>Ez egy próba jegyzet</p>', $storage->last_append['html']);
+        $this->assertSame('Tartalom', $result['selected']['body_text']);
+        $this->assertSame(1, substr_count($storage->last_append['html'], '<p>próba jegyzet</p>'));
+        $this->assertStringContainsString('<p>Tartalom</p>', $storage->last_append['html']);
     }
 
     private function buildService(array $conflict_state)
@@ -498,10 +552,12 @@ class ImapNotesServiceTestStorage implements ImapNotesStorageInterface
     public $delete_result = ['cleanup_pending' => false];
     public $retry_result = ['cleanup_pending' => false];
     public $saved_note_exists = true;
+    private $loaded_revision;
 
     public function __construct(array $conflict_state)
     {
         $this->conflict_state = $conflict_state;
+        $this->loaded_revision = $conflict_state['loaded_revision'] ?? ($conflict_state['current'] ?? null);
     }
 
     public function ensureFolder()
@@ -522,6 +578,10 @@ class ImapNotesServiceTestStorage implements ImapNotesStorageInterface
 
     public function loadRevision($folder, $note_key)
     {
+        if ($note_key === 'current-note' && $this->loaded_revision) {
+            return $this->loaded_revision;
+        }
+
         if ($note_key === 'saved-note' && !$this->saved_note_exists) {
             return null;
         }
@@ -616,6 +676,13 @@ class ImapNotesRoundTripServiceTestStorage implements ImapNotesStorageInterface
         $this->content = new ImapNotesContent();
         $this->message_factory = new ImapNotesMessage();
         if (!empty($seed)) {
+            if (!empty($seed['raw'])) {
+                $this->persisted_message = ['raw' => $seed['raw']];
+                $this->persisted_note = $this->buildPersistedNote($this->persisted_message);
+
+                return;
+            }
+
             $title = $seed['title'] ?? 'Próba';
             $storage_text = $seed['storage_text'] ?? $title;
             $html = $this->content->textToSafeHtml($storage_text);
