@@ -77,14 +77,28 @@ if (!class_exists('rcube_utils')) {
     class rcube_utils
     {
         const INPUT_GPC = 0;
+        const INPUT_GET = 1;
+        const INPUT_POST = 2;
 
         public static function get_input_string($name, $source)
         {
+            if ($source === self::INPUT_GET) {
+                return isset($_GET[$name]) ? (string) $_GET[$name] : '';
+            }
+
+            if ($source === self::INPUT_POST) {
+                return isset($_POST[$name]) ? (string) $_POST[$name] : '';
+            }
+
+            if (isset($_POST[$name])) {
+                return (string) $_POST[$name];
+            }
+
             if (isset($_GET[$name])) {
                 return (string) $_GET[$name];
             }
 
-            return isset($_POST[$name]) ? (string) $_POST[$name] : '';
+            return '';
         }
     }
 }
