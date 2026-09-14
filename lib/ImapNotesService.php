@@ -90,7 +90,7 @@ class ImapNotesService
         $logical_uuid = !empty($state['logical_uuid']) && empty($decision['copy'])
             ? $state['logical_uuid']
             : ImapNotesMessage::uuidV4();
-        if ($this->submittedBodyStartsWithTitle($title, $body) && $this->shouldNormalizeCompatibleBody($conflict_state['current'] ?? null)) {
+        if ($this->shouldNormalizeCompatibleBody($conflict_state['current'] ?? null)) {
             $body = $this->content->normalizeImportedEditableBody($title, $body, true, true);
         }
         $storage_text = $this->content->composeStorageBodyText($title, $body);
@@ -297,21 +297,4 @@ class ImapNotesService
         return !empty($note) && (!empty($note['plugin_managed']) || !empty($note['legacy_apple']));
     }
 
-    private function submittedBodyStartsWithTitle($title, $body)
-    {
-        $normalized_title = trim(preg_replace('/[\s\p{Z}]+/u', ' ', $this->content->normalizePlainText((string) $title)));
-        if ($normalized_title === '') {
-            return false;
-        }
-
-        foreach (preg_split('/\n/', $this->content->normalizePlainText((string) $body)) as $line) {
-            if (trim($line) === '') {
-                continue;
-            }
-
-            return trim(preg_replace('/[\s\p{Z}]+/u', ' ', $this->content->normalizePlainText($line))) === $normalized_title;
-        }
-
-        return false;
-    }
 }

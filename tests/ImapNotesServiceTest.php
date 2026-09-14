@@ -361,6 +361,92 @@ class ImapNotesServiceTest extends TestCase
         $this->assertSame("Próba\n\nEz egy próba jegyzet", $result['selected']['body_text']);
     }
 
+    public function testRepeatedCompatibleSaveReloadCyclesKeepEditorBodyStableWithoutTitleChanges()
+    {
+        $storage = new ImapNotesRoundTripServiceTestStorage();
+        $service = new ImapNotesService(
+            $storage,
+            new ImapNotesContent(),
+            new ImapNotesMessage(),
+            new ImapNotesRevisionResolver(),
+            new ImapNotesConflictResolver(),
+            new ImapNotesServiceTestIdentityResolver('Tester <tester@example.test>')
+        );
+        $title = 'Próba';
+        $body = 'Ez egy próba jegyzet';
+
+        $result = $service->save([
+            'title' => $title,
+            'body' => $body,
+        ], 'Untitled note');
+
+        for ($i = 0; $i < 3; $i++) {
+            $loaded = $service->view($result['selected']['note_key'])['selected'];
+            $this->assertSame($body, $loaded['body_text']);
+            $this->assertSame(1, substr_count($storage->last_append['html'], '<p>Próba</p>'));
+
+            $result = $service->save([
+                'note_key' => $loaded['note_key'],
+                'mailbox' => $loaded['mailbox'],
+                'uid' => $loaded['uid'],
+                'uidvalidity' => $loaded['uidvalidity'],
+                'logical_uuid' => $loaded['logical_uuid'],
+                'message_id' => $loaded['message_id'],
+                'updated_at' => $loaded['updated_at'],
+                'created_at' => $loaded['created_at'],
+                'fingerprint' => $loaded['fingerprint'],
+                'plugin_managed' => '1',
+                'legacy_apple' => '1',
+                'title' => $title,
+                'body' => $loaded['body_text'],
+            ], 'Untitled note');
+
+            $this->assertSame('saved', $result['status']);
+            $this->assertSame($body, $result['selected']['body_text']);
+            $this->assertSame(1, substr_count($storage->last_append['html'], '<p>Próba</p>'));
+        }
+    }
+
+    public function testCompatibleRoundTripSaveRepairsStoredRepeatedTitlePrefixes()
+    {
+        $storage = new ImapNotesRoundTripServiceTestStorage([
+            'title' => 'Próba',
+            'storage_text' => "Próba\n\nPróba\n\nPróba\n\nEz egy próba jegyzet",
+            'plugin_managed' => true,
+            'legacy_apple' => true,
+        ]);
+        $service = new ImapNotesService(
+            $storage,
+            new ImapNotesContent(),
+            new ImapNotesMessage(),
+            new ImapNotesRevisionResolver(),
+            new ImapNotesConflictResolver(),
+            new ImapNotesServiceTestIdentityResolver('Tester <tester@example.test>')
+        );
+
+        $loaded = $service->view('saved-note')['selected'];
+        $this->assertSame('Ez egy próba jegyzet', $loaded['body_text']);
+
+        $result = $service->save([
+            'note_key' => $loaded['note_key'],
+            'mailbox' => $loaded['mailbox'],
+            'uid' => $loaded['uid'],
+            'uidvalidity' => $loaded['uidvalidity'],
+            'logical_uuid' => $loaded['logical_uuid'],
+            'message_id' => $loaded['message_id'],
+            'updated_at' => $loaded['updated_at'],
+            'created_at' => $loaded['created_at'],
+            'fingerprint' => $loaded['fingerprint'],
+            'title' => $loaded['title'],
+            'body' => $loaded['body_text'],
+        ], 'Untitled note');
+
+        $this->assertSame('saved', $result['status']);
+        $this->assertSame('Ez egy próba jegyzet', $result['selected']['body_text']);
+        $this->assertSame(1, substr_count($storage->last_append['html'], '<p>Próba</p>'));
+        $this->assertStringContainsString('<p>Ez egy próba jegyzet</p>', $storage->last_append['html']);
+    }
+
     private function buildService(array $conflict_state)
     {
         return new ImapNotesService(
@@ -483,6 +569,139 @@ class ImapNotesServiceTestStorage implements ImapNotesStorageInterface
     public function retryCleanup($folder, array $state)
     {
         return $this->retry_result;
+    }
+}
+
+class ImapNotesRoundTripServiceTestStorage implements ImapNotesStorageInterface
+{
+    public $last_append;
+    private $content;
+    private $persisted_note;
+
+    public function __construct(array $seed = [])
+    {
+        $this->content = new ImapNotesContent();
+        if (!empty($seed)) {
+            $title = $seed['title'] ?? 'Próba';
+            $storage_text = $seed['storage_text'] ?? $title;
+            $html = $this->content->textToSafeHtml($storage_text);
+            $this->persisted_note = $this->buildPersistedNote([
+                'subject' => $title,
+                'html' => $html,
+                'logical_uuid' => '11111111-1111-4111-8111-111111111111',
+                'message_id' => '<saved@example.invalid>',
+                'updated_at' => '2026-09-12T13:05:00Z',
+                'created_at' => 'Sat, 12 Sep 2026 13:05:00 +0000',
+                'plugin_managed' => !empty($seed['plugin_managed']),
+                'legacy_apple' => !empty($seed['legacy_apple']),
+            ]);
+        }
+    }
+
+    public function ensureFolder()
+    {
+        return 'Notes';
+    }
+
+    public function listRevisions($folder)
+    {
+        return $this->persisted_note ? [$this->persisted_note] : [];
+    }
+
+    public function loadRevision($folder, $note_key)
+    {
+        if ($note_key !== 'saved-note' || !$this->persisted_note) {
+            return null;
+        }
+
+        $loaded = $this->buildPersistedNote($this->last_append ?: $this->persisted_note);
+        $this->persisted_note = $loaded;
+
+        return $loaded;
+    }
+
+    public function checkCurrentRevision($folder, array $state)
+    {
+        if (!$this->persisted_note) {
+            return ['status' => 'missing'];
+        }
+
+        return ['status' => 'ok', 'current' => $this->persisted_note];
+    }
+
+    public function appendRevision($folder, array $message, array $note_data)
+    {
+        $this->last_append = $message + [
+            'plugin_managed' => true,
+            'legacy_apple' => true,
+        ];
+        $this->persisted_note = $this->buildPersistedNote($this->last_append);
+
+        return [
+            'success' => true,
+            'revision' => [
+                'note_key' => 'saved-note',
+                'uid' => '2',
+                'logical_uuid' => $message['logical_uuid'],
+                'message_id' => $message['message_id'],
+                'updated_at' => $message['updated_at'],
+                'title' => $note_data['title'],
+                'fingerprint' => $note_data['fingerprint'],
+            ],
+        ];
+    }
+
+    public function retireRevision($folder, array $state, array $new_revision)
+    {
+        return ['cleanup_pending' => false];
+    }
+
+    public function deleteRevision($folder, array $state)
+    {
+        return ['cleanup_pending' => false];
+    }
+
+    public function retryCleanup($folder, array $state)
+    {
+        return ['cleanup_pending' => false];
+    }
+
+    private function buildPersistedNote(array $message)
+    {
+        $title = $message['subject'] ?? $message['title'] ?? 'Saved';
+        $html = $message['html'] ?? '<html><body><p>Body</p></body></html>';
+        $compatible = !empty($message['plugin_managed']) || !empty($message['legacy_apple']);
+        $body_text = array_key_exists('body_text', $message)
+            ? $message['body_text']
+            : $this->content->normalizeImportedEditableBody(
+                $title,
+                $this->content->htmlToText($html),
+                $compatible,
+                $compatible
+            );
+
+        return [
+            'note_key' => 'saved-note',
+            'mailbox' => 'Notes',
+            'uid' => '2',
+            'uidvalidity' => '22',
+            'logical_uuid' => $message['logical_uuid'] ?? '11111111-1111-4111-8111-111111111111',
+            'message_id' => $message['message_id'] ?? '<saved@example.invalid>',
+            'updated_at' => $message['updated_at'] ?? '2026-09-12T13:05:00Z',
+            'created_at' => $message['created_at'] ?? 'Sat, 12 Sep 2026 13:05:00 +0000',
+            'title' => $title,
+            'preview' => $this->content->previewText($body_text),
+            'body_text' => $body_text,
+            'body_html' => $html,
+            'fingerprint' => $this->content->fingerprint($title, $body_text),
+            'read_only' => false,
+            'read_only_reason' => '',
+            'cleanup_pending' => false,
+            'cleanup_pending_target_uid' => '',
+            'plugin_managed' => !empty($message['plugin_managed']),
+            'legacy_apple' => !empty($message['legacy_apple']),
+            'imported' => false,
+        ];
     }
 }
 
