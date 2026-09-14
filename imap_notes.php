@@ -68,7 +68,7 @@ class imap_notes extends rcube_plugin
         try {
             $this->view_data = $this->service->view(
                 rcube_utils::get_input_string('_note', rcube_utils::INPUT_GPC),
-                rcube_utils::get_input_string('_new', rcube_utils::INPUT_GPC) === '1'
+                rcube_utils::get_input_string('_new', rcube_utils::INPUT_GET) === '1'
             );
         } catch (Exception $e) {
             $this->view_data = $this->fallbackViewData();
