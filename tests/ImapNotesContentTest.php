@@ -185,8 +185,10 @@ class ImapNotesContentTest extends TestCase
         for ($i = 0; $i < 3; $i++) {
             $stored = $content->composeStorageBodyText($title, $editable_body);
             $this->assertSame("Próba\n\nEz egy próba jegyzet", $stored);
+            $this->assertSame(1, substr_count($stored, "Próba\n\n"));
             $html = $content->textToSafeHtml($stored);
             $this->assertSame("<html><body>\n<p>Próba</p>\n<p>Ez egy próba jegyzet</p>\n</body></html>", $html);
+            $this->assertSame(1, substr_count($html, '<p>Próba</p>'));
 
             $editable_body = $content->normalizeImportedEditableBody($title, $content->htmlToText($html), true, true);
             $this->assertSame($original_body, $editable_body);

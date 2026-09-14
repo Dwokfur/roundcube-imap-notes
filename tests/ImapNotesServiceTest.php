@@ -209,6 +209,46 @@ class ImapNotesServiceTest extends TestCase
         $this->assertStringContainsString('<p>Ez egy próba jegyzet<br />' . "\n" . 'áéíóöőúüű</p>', $storage->last_append['html']);
     }
 
+    public function testSaveStripsSingleCompatibleTitlePrefixBeforeWrite()
+    {
+        $existing_note = [
+            'note_key' => 'current-note',
+            'uid' => '4',
+            'mailbox' => 'Notes',
+            'title' => 'Próba',
+            'body_text' => 'Ez egy próba jegyzet',
+            'plugin_managed' => true,
+            'legacy_apple' => true,
+            'read_only' => false,
+        ];
+        $storage = new ImapNotesServiceTestStorage(['status' => 'ok', 'current' => $existing_note]);
+        $storage->saved_note_exists = false;
+        $service = new ImapNotesService(
+            $storage,
+            new ImapNotesContent(),
+            new ImapNotesMessage(),
+            new ImapNotesRevisionResolver(),
+            new ImapNotesConflictResolver(),
+            new ImapNotesServiceTestIdentityResolver('Tester <tester@example.test>')
+        );
+
+        $result = $service->save([
+            'note_key' => 'current-note',
+            'uid' => '4',
+            'uidvalidity' => '22',
+            'logical_uuid' => '11111111-1111-4111-8111-111111111111',
+            'updated_at' => '2026-09-12T13:00:00Z',
+            'fingerprint' => 'old',
+            'title' => 'Próba',
+            'body' => "Próba\n\nEz egy próba jegyzet",
+        ], 'Untitled note');
+
+        $this->assertSame('saved', $result['status']);
+        $this->assertSame(1, substr_count($storage->last_append['html'], '<p>Próba</p>'));
+        $this->assertSame(1, substr_count($storage->last_append['html'], '<p>Ez egy próba jegyzet</p>'));
+        $this->assertSame('Ez egy próba jegyzet', $result['selected']['body_text']);
+    }
+
     public function testSaveRepairsCompatibleRepeatedTitlePrefixesBeforeWriteAndInFallbackSelectedNote()
     {
         $existing_note = [
@@ -244,12 +284,12 @@ class ImapNotesServiceTest extends TestCase
         ], 'Untitled note');
 
         $this->assertSame('saved', $result['status']);
-        $this->assertStringContainsString("<p>Próba</p>\n<p>Ez egy próba jegyzet</p>", $storage->last_append['html']);
-        $this->assertStringNotContainsString("<p>Próba</p>\n<p>Próba</p>", $storage->last_append['html']);
+        $this->assertSame(1, substr_count($storage->last_append['html'], '<p>Próba</p>'));
+        $this->assertSame(1, substr_count($storage->last_append['html'], '<p>Ez egy próba jegyzet</p>'));
         $this->assertSame('Ez egy próba jegyzet', $result['selected']['body_text']);
     }
 
-    public function testSaveRepairsCompatibleRepeatedTitlePrefixesWhenCurrentRevisionIsUnavailable()
+    public function testSaveDoesNotTrustPostedCompatibilityMarkersWithoutServerValidatedCurrentNote()
     {
         $storage = new ImapNotesServiceTestStorage(['status' => 'missing']);
         $storage->saved_note_exists = false;
@@ -276,14 +316,23 @@ class ImapNotesServiceTest extends TestCase
         ], 'Untitled note');
 
         $this->assertSame('saved', $result['status']);
-        $this->assertStringContainsString("<p>Próba</p>\n<p>Ez egy próba jegyzet</p>", $storage->last_append['html']);
-        $this->assertStringNotContainsString("<p>Próba</p>\n<p>Próba</p>", $storage->last_append['html']);
-        $this->assertSame('Ez egy próba jegyzet', $result['selected']['body_text']);
+        $this->assertSame(3, substr_count($storage->last_append['html'], '<p>Próba</p>'));
+        $this->assertSame("Próba\n\nPróba\n\nEz egy próba jegyzet", $result['selected']['body_text']);
     }
 
-    public function testSaveKeepsSingleMatchingFirstLineWhenRepairingCompatibleBody()
+    public function testSaveUsesServerDerivedCompatibilityStateInsteadOfPostedMarkers()
     {
-        $storage = new ImapNotesServiceTestStorage(['status' => 'missing']);
+        $generic_note = [
+            'note_key' => 'current-note',
+            'uid' => '4',
+            'mailbox' => 'Notes',
+            'title' => 'Próba',
+            'body_text' => 'Próba' . "\n\n" . 'Ez egy próba jegyzet',
+            'plugin_managed' => false,
+            'legacy_apple' => false,
+            'read_only' => false,
+        ];
+        $storage = new ImapNotesServiceTestStorage(['status' => 'ok', 'current' => $generic_note]);
         $storage->saved_note_exists = false;
         $service = new ImapNotesService(
             $storage,
@@ -308,7 +357,7 @@ class ImapNotesServiceTest extends TestCase
         ], 'Untitled note');
 
         $this->assertSame('saved', $result['status']);
-        $this->assertStringContainsString("<p>Próba</p>\n<p>Próba</p>\n<p>Ez egy próba jegyzet</p>", $storage->last_append['html']);
+        $this->assertSame(2, substr_count($storage->last_append['html'], '<p>Próba</p>'));
         $this->assertSame("Próba\n\nEz egy próba jegyzet", $result['selected']['body_text']);
     }
 
