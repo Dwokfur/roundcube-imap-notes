@@ -261,6 +261,8 @@ class ImapNotesPluginUiTest extends TestCase
         $this->assertSame('Ez egy próba jegyzet', $view_data['selected']['body_text']);
         $this->assertTrue($view_data['selected']['cleanup_pending']);
         $this->assertSame('1', $view_data['selected']['cleanup_pending_target_uid']);
+        $this->assertSame(1, $service->save_calls);
+        $this->assertSame([['post' => $_POST, 'fallback_title' => 'untitlednote']], $service->save_arguments);
         $this->assertSame([['note_key' => 'saved-note', 'new_note' => false]], $service->view_calls);
     }
 
@@ -468,6 +470,7 @@ class ImapNotesPluginUiTestFakeService
     public $view_calls = [];
     public $delete_calls = 0;
     public $save_calls = 0;
+    public $save_arguments = [];
     public $save_result = [
         'status' => 'saved',
         'selected' => ['note_key' => 'saved-note'],
@@ -489,6 +492,7 @@ class ImapNotesPluginUiTestFakeService
     public function save(array $post, $fallback_title)
     {
         $this->save_calls++;
+        $this->save_arguments[] = ['post' => $post, 'fallback_title' => $fallback_title];
 
         return $this->save_result;
     }
