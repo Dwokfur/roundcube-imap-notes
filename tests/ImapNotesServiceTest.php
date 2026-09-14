@@ -714,9 +714,9 @@ class ImapNotesRoundTripServiceTestStorage implements ImapNotesStorageInterface
         $headers = $parsed['headers'];
         $title = $headers ? mb_decode_mimeheader((string) ($headers['subject'] ?? '')) : ($message['subject'] ?? $message['title'] ?? 'Saved');
         $encoded_html = $headers ? (string) ($parsed['body'] ?? '') : '';
-        $html = $headers && strtolower((string) ($headers['content-transfer-encoding'] ?? '')) === 'quoted-printable'
-            ? quoted_printable_decode($encoded_html)
-            : ($headers ? $encoded_html : ($message['html'] ?? '<html><body><p>Body</p></body></html>'));
+        $html = $headers
+            ? $this->decodeTransferBody($encoded_html, (string) ($headers['content-transfer-encoding'] ?? ''))
+            : ($message['html'] ?? '<html><body><p>Body</p></body></html>');
         $body_text = $this->content->htmlToText($html);
         $plugin_managed = (string) ($headers['x-roundcube-note-version'] ?? '') !== '';
         $legacy_apple = strtolower((string) ($headers['x-uniform-type-identifier'] ?? '')) === 'com.apple.mail-note';
@@ -757,6 +757,21 @@ class ImapNotesRoundTripServiceTestStorage implements ImapNotesStorageInterface
     public function persistedStorageText()
     {
         return $this->persisted_storage_text;
+    }
+
+    private function decodeTransferBody($body, $encoding)
+    {
+        $encoding = strtolower(trim($encoding));
+        if ($encoding === 'quoted-printable') {
+            return quoted_printable_decode($body);
+        }
+        if ($encoding === 'base64') {
+            $decoded = base64_decode($body, true);
+
+            return $decoded === false ? $body : $decoded;
+        }
+
+        return $body;
     }
 }
 
