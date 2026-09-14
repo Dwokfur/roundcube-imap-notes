@@ -94,8 +94,9 @@ class ImapNotesService
         $logical_uuid = !empty($state['logical_uuid']) && empty($decision['copy'])
             ? $state['logical_uuid']
             : ImapNotesMessage::uuidV4();
-        if ($this->shouldNormalizeCompatibleBody($conflict_state['current'] ?? null)) {
-            $body = $this->content->normalizeImportedEditableBody($title, $body, true, true);
+        $compatible_current = $this->compatibleCurrentNote($folder, $state, $conflict_state);
+        if ($this->shouldNormalizeCompatibleBody($compatible_current)) {
+            $body = $this->content->normalizeImportedEditableBody((string) ($compatible_current['title'] ?? $title), $body, true, true);
         }
         $storage_text = $this->content->composeStorageBodyText($title, $body);
         $html = $this->content->textToSafeHtml($storage_text);
@@ -294,6 +295,19 @@ class ImapNotesService
         } catch (Exception $e) {
             return null;
         }
+    }
+
+    private function compatibleCurrentNote($folder, array $state, array $conflict_state)
+    {
+        if (!empty($conflict_state['current'])) {
+            return $conflict_state['current'];
+        }
+
+        if (empty($state['note_key'])) {
+            return null;
+        }
+
+        return $this->storage->loadRevision($folder, $state['note_key']);
     }
 
     private function shouldNormalizeCompatibleBody($note)
