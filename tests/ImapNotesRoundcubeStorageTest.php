@@ -264,6 +264,44 @@ class ImapNotesRoundcubeStorageTest extends TestCase
         $this->assertSame('Ez egy próba jegyzet', $note['body_text']);
     }
 
+    public function testCompatibilityHeadersMustBeAvailableForManagedAndAppleDetection()
+    {
+        $storage = $this->newStorage();
+        $body = "ÁRVÍZTŰRŐ TÜKÖRFÚRÓGÉP\n\nárvíztűrő tükörfúrógép";
+        rcube_message::$messages['Notes']['15'] = [
+            'headers' => [
+                'subject' => 'ÁRVÍZTŰRŐ TÜKÖRFÚRÓGÉP',
+                'message-id' => '<missing-compat@example.invalid>',
+            ],
+            'mimetype' => 'text/plain',
+            'body' => $body,
+            'attachments' => [],
+        ];
+        rcube_message::$messages['Notes']['16'] = [
+            'headers' => [
+                'subject' => 'ÁRVÍZTŰRŐ TÜKÖRFÚRÓGÉP',
+                'message-id' => '<with-compat@example.invalid>',
+                'x-roundcube-note-version' => '1',
+                'x-uniform-type-identifier' => 'com.apple.mail-note',
+            ],
+            'mimetype' => 'text/plain',
+            'body' => $body,
+            'attachments' => [],
+        ];
+
+        $without_headers = $storage->loadRevision('Notes', ImapNotesRoundcubeStorage::encodeNoteKey('Notes', '15'));
+        $with_headers = $storage->loadRevision('Notes', ImapNotesRoundcubeStorage::encodeNoteKey('Notes', '16'));
+
+        $this->assertFalse($without_headers['plugin_managed']);
+        $this->assertFalse($without_headers['legacy_apple']);
+        $this->assertSame($body, $without_headers['body_text']);
+
+        $this->assertTrue($with_headers['plugin_managed']);
+        $this->assertTrue($with_headers['legacy_apple']);
+        $this->assertSame('ÁRVÍZTŰRŐ TÜKÖRFÚRÓGÉP', $with_headers['title']);
+        $this->assertSame('árvíztűrő tükörfúrógép', $with_headers['body_text']);
+    }
+
     public function testAppleMarkedMessageRepairsRepeatedTitlePrefixWithoutPluginMarker()
     {
         $storage = $this->newStorage();

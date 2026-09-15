@@ -40,6 +40,7 @@ class imap_notes extends rcube_plugin
         $this->register_action('delete', [$this, 'action_delete']);
         $this->register_action('retry_cleanup', [$this, 'action_retry_cleanup']);
         $this->add_hook('startup', [$this, 'startup']);
+        $this->add_hook('storage_init', [$this, 'storage_init']);
     }
 
     public function startup($args)
@@ -59,6 +60,35 @@ class imap_notes extends rcube_plugin
         if ($this->rc->task === 'imap_notes') {
             $this->include_stylesheet($this->local_skin_path() . '/imap_notes.css');
         }
+
+        return $args;
+    }
+
+    public function storage_init($args)
+    {
+        $fetch_headers = [];
+        if (!empty($args['fetch_headers']) && is_array($args['fetch_headers'])) {
+            $fetch_headers = $args['fetch_headers'];
+        }
+
+        $known_headers = [];
+        foreach ($fetch_headers as $header) {
+            $known_headers[strtolower((string) $header)] = true;
+        }
+
+        foreach ([
+            'X-Roundcube-Note-Version',
+            'X-Uniform-Type-Identifier',
+            'X-Universally-Unique-Identifier',
+            'X-Roundcube-Note-Updated',
+            'X-Mail-Created-Date',
+        ] as $header) {
+            if (empty($known_headers[strtolower($header)])) {
+                $fetch_headers[] = $header;
+            }
+        }
+
+        $args['fetch_headers'] = $fetch_headers;
 
         return $args;
     }
