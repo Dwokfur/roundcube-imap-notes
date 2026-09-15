@@ -8,6 +8,7 @@ if (!class_exists('rcube_plugin')) {
         public static $labels = [];
         public $included_stylesheets = [];
         public $included_scripts = [];
+        public $hooks = [];
 
         public function gettext($label)
         {
@@ -28,6 +29,7 @@ if (!class_exists('rcube_plugin')) {
 
         public function add_hook($name, $callback)
         {
+            $this->hooks[] = [$name, $callback];
         }
 
         public function add_button($button, $container)
@@ -47,6 +49,10 @@ if (!class_exists('rcube_plugin')) {
         public function local_skin_path()
         {
             return 'skins/elastic';
+        }
+
+        public function load_config()
+        {
         }
     }
 }
@@ -138,6 +144,43 @@ class ImapNotesPluginUiTest extends TestCase
 
         $this->assertSame([], $plugin->included_scripts);
         $this->assertContains('skins/elastic/imap_notes.css', $plugin->included_stylesheets);
+    }
+
+    public function testInitRegistersStorageInitHook()
+    {
+        $plugin = new imap_notes();
+        rcmail::$instance = new ImapNotesPluginUiTestFakeRcmail();
+
+        $plugin->init();
+
+        $this->assertContains('startup', array_column($plugin->hooks, 0));
+        $this->assertContains('storage_init', array_column($plugin->hooks, 0));
+    }
+
+    public function testStorageInitPreservesExistingHeadersAndAddsRequiredCustomHeaders()
+    {
+        $plugin = new imap_notes();
+        $args = [
+            'fetch_headers' => ['Subject', 'X-Existing-Header'],
+            'title' => 'ÁRVÍZTŰRŐ TÜKÖRFÚRÓGÉP',
+            'body' => "ÁRVÍZTŰRŐ TÜKÖRFÚRÓGÉP\n\nárvíztűrő tükörfúrógép",
+        ];
+
+        $result = $plugin->storage_init($args);
+
+        $this->assertSame('Subject', $result['fetch_headers'][0]);
+        $this->assertSame('X-Existing-Header', $result['fetch_headers'][1]);
+        foreach ([
+            'X-Roundcube-Note-Version',
+            'X-Uniform-Type-Identifier',
+            'X-Universally-Unique-Identifier',
+            'X-Roundcube-Note-Updated',
+            'X-Mail-Created-Date',
+        ] as $required) {
+            $this->assertContains($required, $result['fetch_headers']);
+        }
+        $this->assertSame($args['title'], $result['title']);
+        $this->assertSame($args['body'], $result['body']);
     }
 
     public function testStartupDoesNotIncludeElasticNotesStylesheetOutsideNotesTask()
@@ -411,11 +454,16 @@ class ImapNotesPluginUiTestFakeRcmail
 {
     public $task = '';
     public $output;
+    public $config;
+    public $user;
     public $request_security_check_calls = 0;
+    private $storage;
 
     public function __construct()
     {
         $this->output = new ImapNotesPluginUiTestFakeOutput();
+        $this->config = new ImapNotesPluginUiTestFakeConfig();
+        $this->storage = new ImapNotesPluginUiTestFakeStorage();
     }
 
     public function url(array $params)
@@ -433,6 +481,11 @@ class ImapNotesPluginUiTestFakeRcmail
         $this->request_security_check_calls++;
 
         return true;
+    }
+
+    public function get_storage()
+    {
+        return $this->storage;
     }
 }
 
@@ -508,4 +561,16 @@ class ImapNotesPluginUiTestFakeService
     {
         return [];
     }
+}
+
+class ImapNotesPluginUiTestFakeConfig
+{
+    public function get($key, $default = null)
+    {
+        return $default;
+    }
+}
+
+class ImapNotesPluginUiTestFakeStorage
+{
 }
