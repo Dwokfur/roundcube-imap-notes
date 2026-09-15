@@ -187,10 +187,11 @@ class ImapNotesPluginUiTest extends TestCase
     {
         $plugin = new imap_notes();
         $args = [
-            'fetch_headers' => 'List-Id',
+            'fetch_headers' => 'List-Id x-roundcube-note-version',
         ];
 
         $result = $plugin->storage_init($args);
+        $headers = preg_split('/\s+/', $result['fetch_headers'], -1, PREG_SPLIT_NO_EMPTY);
 
         $this->assertIsArray($result);
         $this->assertSame('List-Id', substr($result['fetch_headers'], 0, strlen('List-Id')));
@@ -205,6 +206,12 @@ class ImapNotesPluginUiTest extends TestCase
         ] as $required) {
             $this->assertStringContainsString($required, strtoupper($result['fetch_headers']));
         }
+        $this->assertSame(
+            1,
+            count(array_filter($headers, function ($header) {
+                return strtolower($header) === 'x-roundcube-note-version';
+            }))
+        );
     }
 
     public function testStartupDoesNotIncludeElasticNotesStylesheetOutsideNotesTask()
