@@ -157,19 +157,21 @@ class ImapNotesPluginUiTest extends TestCase
         $this->assertContains('storage_init', array_column($plugin->hooks, 0));
     }
 
-    public function testStorageInitPreservesExistingHeadersAndAddsRequiredCustomHeaders()
+    public function testStorageInitAddsRequiredCustomHeadersAsStringWhenUnset()
     {
         $plugin = new imap_notes();
         $args = [
-            'fetch_headers' => ['Subject', 'X-Existing-Header'],
             'title' => 'ÁRVÍZTŰRŐ TÜKÖRFÚRÓGÉP',
             'body' => "ÁRVÍZTŰRŐ TÜKÖRFÚRÓGÉP\n\nárvíztűrő tükörfúrógép",
         ];
 
         $result = $plugin->storage_init($args);
+        $headers = preg_split('/\s+/', $result['fetch_headers'], -1, PREG_SPLIT_NO_EMPTY);
+        $normalized_headers = array_map('strtolower', $headers);
 
-        $this->assertSame('Subject', $result['fetch_headers'][0]);
-        $this->assertSame('X-Existing-Header', $result['fetch_headers'][1]);
+        $this->assertIsArray($result);
+        $this->assertArrayHasKey('fetch_headers', $result);
+        $this->assertTrue(is_string($result['fetch_headers']));
         foreach ([
             'X-Roundcube-Note-Version',
             'X-Uniform-Type-Identifier',
@@ -177,10 +179,67 @@ class ImapNotesPluginUiTest extends TestCase
             'X-Roundcube-Note-Updated',
             'X-Mail-Created-Date',
         ] as $required) {
-            $this->assertContains($required, $result['fetch_headers']);
+            $this->assertContains(strtolower($required), $normalized_headers);
         }
         $this->assertSame($args['title'], $result['title']);
         $this->assertSame($args['body'], $result['body']);
+    }
+
+    public function testStorageInitPreservesExistingFetchHeadersStringAndAppendsRequiredCustomHeaders()
+    {
+        $plugin = new imap_notes();
+        $args = [
+            'fetch_headers' => 'List-Id x-roundcube-note-version',
+        ];
+
+        $result = $plugin->storage_init($args);
+        $headers = preg_split('/\s+/', $result['fetch_headers'], -1, PREG_SPLIT_NO_EMPTY);
+        $normalized_headers = array_map('strtolower', $headers);
+
+        $this->assertIsArray($result);
+        $this->assertTrue(is_string($result['fetch_headers']));
+        $this->assertContains('List-Id', $headers);
+        foreach ([
+            'LIST-ID',
+            'X-ROUNDCUBE-NOTE-VERSION',
+            'X-UNIFORM-TYPE-IDENTIFIER',
+            'X-UNIVERSALLY-UNIQUE-IDENTIFIER',
+            'X-ROUNDCUBE-NOTE-UPDATED',
+            'X-MAIL-CREATED-DATE',
+        ] as $required) {
+            $this->assertContains(strtolower($required), $normalized_headers);
+        }
+        $this->assertSame(
+            1,
+            count(array_filter($headers, function ($header) {
+                return strtolower($header) === 'x-roundcube-note-version';
+            }))
+        );
+    }
+
+    public function testStorageInitTreatsNonStringFetchHeadersAsEmpty()
+    {
+        $plugin = new imap_notes();
+
+        $result = $plugin->storage_init([
+            'fetch_headers' => ['X-Existing-Header'],
+        ]);
+        $headers = preg_split('/\s+/', $result['fetch_headers'], -1, PREG_SPLIT_NO_EMPTY);
+        $normalized_headers = array_map('strtolower', $headers);
+
+        $this->assertIsArray($result);
+        $this->assertTrue(is_string($result['fetch_headers']));
+        $this->assertNotContains('array', $normalized_headers);
+        $this->assertNotContains('x-existing-header', $normalized_headers);
+        foreach ([
+            'x-roundcube-note-version',
+            'x-uniform-type-identifier',
+            'x-universally-unique-identifier',
+            'x-roundcube-note-updated',
+            'x-mail-created-date',
+        ] as $required) {
+            $this->assertContains($required, $normalized_headers);
+        }
     }
 
     public function testStartupDoesNotIncludeElasticNotesStylesheetOutsideNotesTask()
