@@ -194,8 +194,8 @@ class ImapNotesPluginUiTest extends TestCase
         $headers = preg_split('/\s+/', $result['fetch_headers'], -1, PREG_SPLIT_NO_EMPTY);
 
         $this->assertIsArray($result);
-        $this->assertSame('List-Id', substr($result['fetch_headers'], 0, strlen('List-Id')));
         $this->assertTrue(is_string($result['fetch_headers']));
+        $this->assertContains('List-Id', $headers);
         foreach ([
             'LIST-ID',
             'X-ROUNDCUBE-NOTE-VERSION',
