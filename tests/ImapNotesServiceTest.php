@@ -656,7 +656,7 @@ class ImapNotesServiceTest extends TestCase
     public function testNoCurrentFallbackLoadsCompatibleServerNoteByKeyAndUsesServerTitleToStripPrefixes()
     {
         $server_title = 'ÁRVÍZTŰRŐ TÜKÖRFÚRÓGÉP';
-        $submitted_title = 'árvíztűrő tükörfúrógép';
+        $submitted_title = 'Szerkesztett cím';
         $body = 'árvíztűrő tükörfúrógép';
         $storage = new ImapNotesRoundTripServiceTestStorage([
             'title' => $server_title,
@@ -693,6 +693,7 @@ class ImapNotesServiceTest extends TestCase
 
         $this->assertSame('saved', $result['status']);
         $this->assertSame($body, $result['selected']['body_text']);
+        $this->assertSame(1, substr_count($storage->last_append['html'], '<p>Szerkesztett cím</p>'));
         $this->assertSame(1, substr_count($storage->last_append['html'], '<p>árvíztűrő tükörfúrógép</p>'));
         $this->assertSame(0, substr_count($storage->last_append['html'], '<p>ÁRVÍZTŰRŐ TÜKÖRFÚRÓGÉP</p>'));
     }
