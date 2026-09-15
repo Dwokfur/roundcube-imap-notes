@@ -166,6 +166,8 @@ class ImapNotesPluginUiTest extends TestCase
         ];
 
         $result = $plugin->storage_init($args);
+        $headers = preg_split('/\s+/', $result['fetch_headers'], -1, PREG_SPLIT_NO_EMPTY);
+        $normalized_headers = array_map('strtolower', $headers);
 
         $this->assertIsArray($result);
         $this->assertArrayHasKey('fetch_headers', $result);
@@ -177,7 +179,7 @@ class ImapNotesPluginUiTest extends TestCase
             'X-Roundcube-Note-Updated',
             'X-Mail-Created-Date',
         ] as $required) {
-            $this->assertStringContainsString(strtoupper($required), $result['fetch_headers']);
+            $this->assertContains(strtolower($required), $normalized_headers);
         }
         $this->assertSame($args['title'], $result['title']);
         $this->assertSame($args['body'], $result['body']);
@@ -192,6 +194,7 @@ class ImapNotesPluginUiTest extends TestCase
 
         $result = $plugin->storage_init($args);
         $headers = preg_split('/\s+/', $result['fetch_headers'], -1, PREG_SPLIT_NO_EMPTY);
+        $normalized_headers = array_map('strtolower', $headers);
 
         $this->assertIsArray($result);
         $this->assertTrue(is_string($result['fetch_headers']));
@@ -204,7 +207,7 @@ class ImapNotesPluginUiTest extends TestCase
             'X-ROUNDCUBE-NOTE-UPDATED',
             'X-MAIL-CREATED-DATE',
         ] as $required) {
-            $this->assertStringContainsString($required, strtoupper($result['fetch_headers']));
+            $this->assertContains(strtolower($required), $normalized_headers);
         }
         $this->assertSame(
             1,
