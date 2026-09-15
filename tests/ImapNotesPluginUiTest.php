@@ -217,6 +217,31 @@ class ImapNotesPluginUiTest extends TestCase
         );
     }
 
+    public function testStorageInitTreatsNonStringFetchHeadersAsEmpty()
+    {
+        $plugin = new imap_notes();
+
+        $result = $plugin->storage_init([
+            'fetch_headers' => ['X-Existing-Header'],
+        ]);
+        $headers = preg_split('/\s+/', $result['fetch_headers'], -1, PREG_SPLIT_NO_EMPTY);
+        $normalized_headers = array_map('strtolower', $headers);
+
+        $this->assertIsArray($result);
+        $this->assertTrue(is_string($result['fetch_headers']));
+        $this->assertNotContains('array', $normalized_headers);
+        $this->assertNotContains('x-existing-header', $normalized_headers);
+        foreach ([
+            'x-roundcube-note-version',
+            'x-uniform-type-identifier',
+            'x-universally-unique-identifier',
+            'x-roundcube-note-updated',
+            'x-mail-created-date',
+        ] as $required) {
+            $this->assertContains($required, $normalized_headers);
+        }
+    }
+
     public function testStartupDoesNotIncludeElasticNotesStylesheetOutsideNotesTask()
     {
         $plugin = new imap_notes();

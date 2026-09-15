@@ -74,7 +74,9 @@ class imap_notes extends rcube_plugin
             'X-Mail-Created-Date',
         ];
 
-        $fetch_headers = trim((string) ($args['fetch_headers'] ?? ''));
+        $fetch_headers = isset($args['fetch_headers']) && is_string($args['fetch_headers'])
+            ? trim($args['fetch_headers'])
+            : '';
         $known_headers = [];
         foreach (preg_split('/\s+/', $fetch_headers, -1, PREG_SPLIT_NO_EMPTY) as $header) {
             $known_headers[strtolower($header)] = true;
