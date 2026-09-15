@@ -64,31 +64,18 @@ class imap_notes extends rcube_plugin
         return $args;
     }
 
-    public function storage_init($args)
+    public function storage_init(array $args)
     {
-        $fetch_headers = [];
-        if (!empty($args['fetch_headers']) && is_array($args['fetch_headers'])) {
-            $fetch_headers = $args['fetch_headers'];
-        }
-
-        $known_headers = [];
-        foreach ($fetch_headers as $header) {
-            $known_headers[strtolower((string) $header)] = true;
-        }
-
-        foreach ([
+        $headers = [
             'X-Roundcube-Note-Version',
             'X-Uniform-Type-Identifier',
             'X-Universally-Unique-Identifier',
             'X-Roundcube-Note-Updated',
             'X-Mail-Created-Date',
-        ] as $header) {
-            if (empty($known_headers[strtolower($header)])) {
-                $fetch_headers[] = $header;
-            }
-        }
+        ];
 
-        $args['fetch_headers'] = $fetch_headers;
+        $extra_headers = strtoupper(implode(' ', $headers));
+        $args['fetch_headers'] = trim((string) ($args['fetch_headers'] ?? '') . ' ' . $extra_headers);
 
         return $args;
     }
