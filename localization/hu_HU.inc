@@ -27,3 +27,4 @@ $labels['cleanupdone'] = 'Megakadt törlés sikerült.';
 $labels['reloaded'] = 'A távoli verzió újbóli betöltése.';
 $labels['deleteconfirm'] = 'Törli ezt a jegyzetet?';
 $labels['foldererror'] = 'A "%s" jegyzet mailbox elérése vagy létrehozása sikertelen.';
+$labels['identityerror'] = 'Állítson be érvényes email címet a Roundcube identity részén mielőtt jegyzetet ment.';
