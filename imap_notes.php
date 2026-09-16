@@ -41,48 +41,45 @@ class imap_notes extends rcube_plugin
         $this->register_action('retry_cleanup', [$this, 'action_retry_cleanup']);
         $this->add_hook('startup', [$this, 'startup']);
         $this->add_hook('storage_init', [$this, 'storage_init']);
-        // Add this line to intercept the mailbox list
-        $this->add_hook('mailboxes_list', array($this, 'hide_special_folder'));
+        $this->add_hook('storage_folders', [$this, 'hideNotesFolder']);
+        $this->add_hook('render_mailboxlist', [$this, 'hideNotesFolder']);
     }
 
-    public function hide_special_folder($args)
+    public function hideNotesFolder(array $args)
     {
-        $storage = $this->rcmail->get_storage();
-        $configured = trim((string) $this->rcmail->config->get('imap_notes_folder', 'Notes'));
-        $hidden_folders = array($configured);
-
-        // 1. Filter the standard flat folder list
-        if (!empty($args['list'])) {
-            foreach ($args['list'] as $key => $folder) {
-                if (in_array($folder, $hidden_folders)) {
-                    unset($args['list'][$key]);
-                }
-            }
+        $folder = trim((string) $this->rc->config->get('imap_notes_folder', 'Notes'));
+        if ($folder === '') {
+            return $args;
         }
 
-        // 2. Filter the hierarchical folder tree structure (used by modern Roundcube skins)
-        if (!empty($args['tree'])) {
-            $this->filter_folder_tree($args['tree'], $hidden_folders);
+        // storage_folders: a flat list returned by the IMAP layer
+        if (isset($args['folders']) && is_array($args['folders'])) {
+            $args['folders'] = array_values(array_filter(
+                $args['folders'],
+                static function ($name) use ($folder) {
+                    return strcasecmp((string) $name, $folder) !== 0;
+                }
+            ));
+        }
+
+        // render_mailboxlist: the sidebar's hierarchical tree
+        if (isset($args['list']) && is_array($args['list'])) {
+            $this->filterFolderTree($args['list'], $folder);
         }
 
         return $args;
     }
 
-    /**
-     * Helper method to recursively clean the folder tree structure
-     */
-    private function filter_folder_tree(&$tree, $hidden_folders)
+    private function filterFolderTree(array &$tree, $folder)
     {
         foreach ($tree as $key => $node) {
-            // If the node ID matches the folder name, remove it
-            if (in_array($node->id, $hidden_folders)) {
+            if (is_object($node) && isset($node->id) && strcasecmp($node->id, $folder) === 0) {
                 unset($tree[$key]);
                 continue;
             }
 
-            // If this folder has subfolders, recursively check them too
-            if (!empty($node->children)) {
-                $this->filter_folder_tree($node->children, $hidden_folders);
+            if (is_object($node) && isset($node->children) && is_array($node->children)) {
+                $this->filterFolderTree($node->children, $folder);
             }
         }
     }
