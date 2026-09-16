@@ -41,6 +41,50 @@ class imap_notes extends rcube_plugin
         $this->register_action('retry_cleanup', [$this, 'action_retry_cleanup']);
         $this->add_hook('startup', [$this, 'startup']);
         $this->add_hook('storage_init', [$this, 'storage_init']);
+        // Add this line to intercept the mailbox list
+        $this->add_hook('mailboxes_list', array($this, 'hide_special_folder'));
+    }
+
+    public function hide_special_folder($args)
+    {
+        $storage = $this->rcmail->get_storage();
+        $configured = trim((string) $this->rcmail->config->get('imap_notes_folder', 'Notes'));
+        $hidden_folders = array($configured);
+
+        // 1. Filter the standard flat folder list
+        if (!empty($args['list'])) {
+            foreach ($args['list'] as $key => $folder) {
+                if (in_array($folder, $hidden_folders)) {
+                    unset($args['list'][$key]);
+                }
+            }
+        }
+
+        // 2. Filter the hierarchical folder tree structure (used by modern Roundcube skins)
+        if (!empty($args['tree'])) {
+            $this->filter_folder_tree($args['tree'], $hidden_folders);
+        }
+
+        return $args;
+    }
+
+    /**
+     * Helper method to recursively clean the folder tree structure
+     */
+    private function filter_folder_tree(&$tree, $hidden_folders)
+    {
+        foreach ($tree as $key => $node) {
+            // If the node ID matches the folder name, remove it
+            if (in_array($node->id, $hidden_folders)) {
+                unset($tree[$key]);
+                continue;
+            }
+
+            // If this folder has subfolders, recursively check them too
+            if (!empty($node->children)) {
+                $this->filter_folder_tree($node->children, $hidden_folders);
+            }
+        }
     }
 
     public function startup($args)
