@@ -52,36 +52,66 @@ class imap_notes extends rcube_plugin
             return $args;
         }
 
-        // storage_folders: a flat list returned by the IMAP layer
         if (isset($args['folders']) && is_array($args['folders'])) {
             $args['folders'] = array_values(array_filter(
                 $args['folders'],
-                static function ($name) use ($folder) {
-                    return strcasecmp((string) $name, $folder) !== 0;
+                function ($name) use ($folder, $args) {
+                    return !$this->isNotesFolder(
+                        (string) $name,
+                        $folder,
+                        $args['delimiter'] ?? null
+                    );
                 }
             ));
         }
 
-        // render_mailboxlist: the sidebar's hierarchical tree
         if (isset($args['list']) && is_array($args['list'])) {
-            $this->filterFolderTree($args['list'], $folder);
+            $this->filterFolderTree($args['list'], $folder, $args['delimiter'] ?? null);
         }
 
         return $args;
     }
 
-    private function filterFolderTree(array &$tree, $folder)
+    private function filterFolderTree(array &$tree, $folder, $delimiter = null)
     {
-        foreach ($tree as $key => $node) {
-            if (is_object($node) && isset($node->id) && strcasecmp($node->id, $folder) === 0) {
+        foreach ($tree as $key => &$node) {
+            $name = is_object($node) && isset($node->id)
+                ? (string) $node->id
+                : (is_array($node) && isset($node['id']) ? (string) $node['id'] : (string) $key);
+
+            if ($this->isNotesFolder($name, $folder, $delimiter)) {
                 unset($tree[$key]);
                 continue;
             }
 
             if (is_object($node) && isset($node->children) && is_array($node->children)) {
-                $this->filterFolderTree($node->children, $folder);
+                $this->filterFolderTree($node->children, $folder, $delimiter);
+            } elseif (is_array($node) && isset($node['children']) && is_array($node['children'])) {
+                $this->filterFolderTree($node['children'], $folder, $delimiter);
             }
         }
+
+        unset($node);
+    }
+
+    private function isNotesFolder($name, $folder, $delimiter = null)
+    {
+        $name = trim((string) $name);
+        $folder = trim((string) $folder);
+
+        if (strcasecmp($name, $folder) === 0) {
+            return true;
+        }
+
+        // A configured "Notes" mailbox may be internally named "INBOX.Notes".
+        // Only use leaf-name matching when the configured folder is not itself nested.
+        if ($delimiter && strpos($folder, $delimiter) === false) {
+            $parts = explode($delimiter, $name);
+
+            return strcasecmp((string) end($parts), $folder) === 0;
+        }
+
+        return false;
     }
 
     public function startup($args)
